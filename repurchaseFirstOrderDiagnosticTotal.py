@@ -509,6 +509,7 @@ def procesar_rango_fechas(start_date, end_date, nombre_rango):
                 'IG00000000000000000000000000000028'
                 )
             )
+            AND fo.created_at BETWEEN '{start_date}' AND '2026-01-01'
         GROUP BY fo.customer_id
         ),
         first_order_items AS (
@@ -730,7 +731,7 @@ def main():
     rangos_fechas = [
         # {'start': '2021-01-01', 'end': '2022-12-11', 'codigo': 'CTF', 'nombre': 'Control Timeframe'},
         # {'start': '2022-12-20', 'end': '2023-12-31', 'codigo': 'DVL', 'nombre': 'OTO Developer change'},
-        {'start': '2025-01-01', 'end': '2025-04-01', 'codigo': 'Q1 - 2025', 'nombre': 'Q1 - 2025'}
+        {'start': '2025-04-01', 'end': '2025-07-01', 'codigo': 'Q2 - 2025', 'nombre': 'Q2 - 2025'}
     ]
     
     # Crear diccionario de nombres de rangos

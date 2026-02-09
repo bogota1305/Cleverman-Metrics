@@ -19,7 +19,7 @@ funnels_report = True
 database_report = True
 stripe_block_payments = True
 folder_name = 'funnels'
-columna = 15
+columna = 16
 dropbox_var = False
 drive_var = False
 
@@ -111,6 +111,67 @@ if funnels_report:
     if archivos['NPD account - Funnel'] != None:
         get_funnel(archivos['NPD account - Funnel'], 'NPD account - Funnel.xlsx', columna, 41+12, folder_name, dropbox_var, drive_var, actualMonth)
 
+    indiceLandingsBeard = 107
+    indiceLandingsHair = 150
+    indiceLandingsOther = 187
+    avanceLandings = 6
+
+    # Orden exacto según tu lista
+    beard_keys = [
+        "Beard - JetBlack",
+        "Beard - AfricanAmerican",
+        "Beard - Black",
+        "Beard - Blond",
+        "Beard - Red",
+        "Beard - Brown",
+        "Beard - MediumDarkBrown",
+    ]
+
+    hair_keys = [
+        "Hair - AfricanAmerican",
+        "Hair - Red",
+        "Hair - Black",
+        "Hair - Brown",
+        "Hair - LightBrown",
+        "Hair - Blond",
+    ]
+
+    other_keys = [
+        "My instructions",
+        "Inmediate coverage",
+        "Referral",
+        "Grey hair color touch up",
+        "Salt and peper",
+        "Full coverage",
+        "Customized beard",
+        "Best beard color",
+        "Best hair color one time",
+        "Best hair color sub",
+        "Customized beard sub",
+    ]
+
+    # Helper para no repetir lógica
+    def process_funnels(keys, start_index):
+        idx = start_index
+        for k in keys:
+            if archivos.get(k) is not None:
+                get_funnel(
+                    archivos[k],
+                    f"{k}.xlsx",
+                    columna,
+                    idx,
+                    folder_name,
+                    dropbox_var,
+                    drive_var,
+                    actualMonth
+                )
+                idx += avanceLandings
+        return idx
+
+    # Ejecutar por secciones
+    indiceLandingsBeard = process_funnels(beard_keys, indiceLandingsBeard)
+    indiceLandingsHair  = process_funnels(hair_keys,  indiceLandingsHair)
+    indiceLandingsOther = process_funnels(other_keys, indiceLandingsOther)
 
 
 if stripe_block_payments:

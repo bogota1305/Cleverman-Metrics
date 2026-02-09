@@ -9,23 +9,41 @@ from modules.database_queries import execute_query
 
 # Diccionario de shades (solo 30ml, excluyendo 45ml)
 shades = {
-    'IT00000000000000000000000000000021': '30ml Colorant - Light Auburn',
-    'IT00000000000000000000000000000020': '30ml Colorant - Dark Auburn',
-    'IT00000000000000000000000000000019': '30ml Colorant - Lightest Blond',
-    'IT00000000000000000000000000000018': '30ml Colorant - Warm - Light Blond',
-    'IT00000000000000000000000000000017': '30ml Colorant - Cool - Light Blond',
-    'IT00000000000000000000000000000016': '30ml Colorant - Warm-Medium Blond',
-    'IT00000000000000000000000000000015': '30ml Colorant - Cool-Medium Blond',
-    'IT00000000000000000000000000000014': '30ml Colorant - Warm-Dark Blond',
-    'IT00000000000000000000000000000013': '30ml Colorant - Dark Blond',
-    'IT00000000000000000000000000000012': '30ml Colorant: Light Brown',
-    'IT00000000000000000000000000000011': '30ml Colorant - Medium-Light Brown',
-    'IT00000000000000000000000000000002': '30ml Colorant - Medium Brown',
-    'IT00000000000000000000000000000010': '30ml Colorant - Medium-Dark Brown',
-    'IT00000000000000000000000000000009': '30ml Colorant - Dark Brown',
+    # 'IT00000000000000000000000000000021': '30ml Colorant - Light Auburn',
+    # 'IT00000000000000000000000000000020': '30ml Colorant - Dark Auburn',
+    # 'IT00000000000000000000000000000019': '30ml Colorant - Lightest Blond',
+    # 'IT00000000000000000000000000000018': '30ml Colorant - Warm - Light Blond',
+    # 'IT00000000000000000000000000000017': '30ml Colorant - Cool - Light Blond',
+    # 'IT00000000000000000000000000000016': '30ml Colorant - Warm-Medium Blond',
+    # 'IT00000000000000000000000000000015': '30ml Colorant - Cool-Medium Blond',
+    # 'IT00000000000000000000000000000014': '30ml Colorant - Warm-Dark Blond',
+    # 'IT00000000000000000000000000000013': '30ml Colorant - Dark Blond',
+    # 'IT00000000000000000000000000000012': '30ml Colorant: Light Brown',
+    # 'IT00000000000000000000000000000011': '30ml Colorant - Medium-Light Brown',
+    # 'IT00000000000000000000000000000002': '30ml Colorant - Medium Brown',
+    # 'IT00000000000000000000000000000010': '30ml Colorant - Medium-Dark Brown',
+    # 'IT00000000000000000000000000000009': '30ml Colorant - Dark Brown',
     'IT00000000000000000000000000000008': '30ml Colorant - Soft-Black',
-    'IT00000000000000000000000000000007': '30ml Colorant - Black',
-    'IT00000000000000000000000000000006': '30ml Colorant - Jet-Black'
+    # 'IT00000000000000000000000000000007': '30ml Colorant - Black',
+    # 'IT00000000000000000000000000000006': '30ml Colorant - Jet-Black',
+
+    # 'IT00000000000000000000000000000061': '45ml Colorant - Light Auburn',
+    # 'IT00000000000000000000000000000060': '45ml Colorant - Dark Auburn',
+    # 'IT00000000000000000000000000000059': '45ml Colorant - Lightest Blond',
+    # 'IT00000000000000000000000000000058': '45ml Colorant - Warm - Light Blond',
+    # 'IT00000000000000000000000000000057': '45ml Colorant - Cool - Light Blond',
+    # 'IT00000000000000000000000000000056': '45ml Colorant - Warm-Medium Blond',
+    # 'IT00000000000000000000000000000055': '45ml Colorant - Cool-Medium Blond',
+    # 'IT00000000000000000000000000000054': '45ml Colorant - Warm-Dark Blond',
+    # 'IT00000000000000000000000000000053': '45ml Colorant - Dark Blond',
+    # 'IT00000000000000000000000000000052': '45ml Colorant: Light Brown',
+    # 'IT00000000000000000000000000000051': '45ml Colorant - Medium-Light Brown',
+    # 'IT00000000000000000000000000000050': '45ml Colorant - Medium Brown',
+    # 'IT00000000000000000000000000000049': '45ml Colorant - Medium-Dark Brown',
+    # 'IT00000000000000000000000000000048': '45ml Colorant - Dark Brown',
+    # 'IT00000000000000000000000000000047': '45ml Colorant - Soft-Black',
+    # 'IT00000000000000000000000000000046': '45ml Colorant - Black',
+    # 'IT00000000000000000000000000000045': '45ml Colorant - Jet-Black',
 }
 
 def extract_diagnostic_values(additional_fields):
@@ -95,7 +113,7 @@ def procesar_razon(razon):
     razon_str = str(razon).strip()
     
     # Casos especiales que requieren más detalle
-    special_cases = ["I don't like my results", "I experienced a skin reaction", "I don't like my results"]
+    special_cases = []
     
     for case in special_cases:
         if razon_str.startswith(case):
@@ -447,7 +465,7 @@ def main(startDate, endDate):
     df_asian, _ = analizar_cancelaciones_por_razon_y_shade(df, 15)
     
     # 5. Guardar en Excel
-    nombre_archivo = f"analisis_cancelaciones_{startDate}_to_{endDate}.xlsx"
+    nombre_archivo = f"analisis_cancelaciones_Soft_Black_30ml_{startDate}_to_{endDate}.xlsx"
     
     with pd.ExcelWriter(nombre_archivo, engine='openpyxl') as writer:
         # Hoja 1: Por Razon (Etnias)
@@ -506,5 +524,6 @@ def main(startDate, endDate):
 
 # Ejecutar para los períodos deseados
 if __name__ == "__main__":
-    main('2025-01-01', '2025-04-01')
+    # main('2025-05-05', '2025-08-05')
+    main('2025-08-05', '2025-11-05')
     # main('2025-05-01', '2025-08-30')
