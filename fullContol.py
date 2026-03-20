@@ -87,14 +87,11 @@ def fullControl(start_date, end_date):
 
     percentage_new_subs = round(new_subs/total_subs*100, 2)
 
-    percentage_array = [f"{percentage_new_subs}%"]
-    new_subs_array = [new_subs] 
-    total_subs_array = [total_subs] 
-    renewal_subs_array = [renewals] 
+    fcList = [f"{percentage_new_subs}%", new_subs, total_subs, renewals]
 
     print(f"Porcentage: {percentage_new_subs} Nuevas {new_subs} Totales {total_subs} renovaciones {renewals}")
 
-    return percentage_array, new_subs_array, total_subs_array, renewal_subs_array
+    return fcList
 
 
 

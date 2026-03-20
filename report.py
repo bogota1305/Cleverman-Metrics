@@ -33,7 +33,16 @@ def anotar_datos_excel(datos, columna_inicio, fila_inicio, urls=False, month = '
 
     # Escribir los datos en las celdas
     for i, valor in enumerate(datos, start=fila_inicio):
-        ws.cell(row=i, column=columna_inicio, value=valor)
+        try:
+            ws.cell(row=i, column=columna_inicio, value=valor)
+        except AttributeError:
+            cell = ws.cell(row=i, column=columna_inicio)
+            for merged_range in ws.merged_cells.ranges:
+                if cell.coordinate in merged_range:
+                    # Encontrar la celda principal (superior izquierda) del rango combinado
+                    top_left_cell = ws.cell(row=merged_range.min_row, column=merged_range.min_col)
+                    top_left_cell.value = valor
+                    break
 
     # Guardar los cambios en el archivo (nuevo o existente)
     wb.save(nuevo_archivo)

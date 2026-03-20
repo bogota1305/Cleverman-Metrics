@@ -5,21 +5,24 @@ from block_payments import get_blocked_payments
 from exceptedRenewals import get_expected_renewals
 from fullContol import fullControl
 from ga4Funnels import get_funnel
+from howHearFromUs import hear
 from modules.date_selector import open_date_selector
 from orders import get_orders
 from payments import get_payments
 from realRenewalFrecuency import realRenewalFrequency
+from refill import refill 
 from renewalsAndNoRecurrents import get_sales
 from report import anotar_datos_excel, seleccionar_donde_almacenar, seleccionar_tipo_de_reporte
 from selectFiles import seleccionar_archivos_para_casos, seleccionar_archivos_stripe
 from subscriptions import subs
 from uploadCloud import upload_to_drive, upload_to_dropbox
+from upsize import upsize
 
 funnels_report = True
 database_report = True
 stripe_block_payments = True
 folder_name = 'funnels'
-columna = 16
+columna = 15
 dropbox_var = False
 drive_var = False
 
@@ -32,7 +35,7 @@ if funnels_report:
         dropbox_var, drive_var = seleccionar_donde_almacenar()
 
 if database_report:
-    start_date, end_date, folder_name, all_var, orders_var, unique_orders_var, sales_var, payment_errors_var, expected_renewals_var, frequency_var, full_control_var, subs_var = open_date_selector()
+    start_date, end_date, folder_name, all_var, orders_var, unique_orders_var, sales_var, payment_errors_var, expected_renewals_var, frequency_var, full_control_var, subs_var, refill_var, upsize_var, hear_var = open_date_selector()
 
     dropbox_var, drive_var = seleccionar_donde_almacenar()
 
@@ -70,15 +73,58 @@ if database_report:
         realRenewalFrequency(start_date, end_date, folder_name) 
     
     if(full_control_var == 1):
-        percentageFC, newSubsFC, totalSubsFC, renewalFC= fullControl(start_date, end_date)
-        anotar_datos_excel(newSubsFC, columna, 77+12, False, actualMonth)
-        anotar_datos_excel(percentageFC, columna, 80+12, False, actualMonth)
-        anotar_datos_excel(totalSubsFC, columna, 79+12, False, actualMonth)
-        anotar_datos_excel(renewalFC, columna, 78+12, False, actualMonth)
+        fcList = fullControl(start_date, end_date)
+        fcRow = 89
+        anotar_datos_excel(fcList, columna, fcRow, False, actualMonth)
+
+        # anotar_datos_excel(newSubsFC, columna, 77+12, False, actualMonth)
+        # anotar_datos_excel(percentageFC, columna, 80+12, False, actualMonth)
+        # anotar_datos_excel(totalSubsFC, columna, 79+12, False, actualMonth)
+        # anotar_datos_excel(renewalFC, columna, 78+12, False, actualMonth)
 
     if(subs_var == 1):
-        subsPercentage = subs(start_date, end_date)
-        anotar_datos_excel(subsPercentage, columna, 88+12, False, actualMonth)
+        subsPercentage, subsNew, subsExisting = subs(start_date, end_date)
+
+        subsRow = 100
+
+        anotar_datos_excel(subsPercentage, columna, subsRow, False, actualMonth)
+        subsRow = subsRow + 5
+
+        anotar_datos_excel(subsNew, columna, subsRow, False, actualMonth)
+        subsRow = subsRow + 4
+
+        anotar_datos_excel(subsExisting, columna, subsRow, False, actualMonth)
+
+    if(refill_var == 1):
+        refillData = refill(start_date, end_date)
+        anotar_datos_excel(refillData, columna, 113, False, actualMonth)
+    
+    if(upsize_var == 1):
+        upsizeBeard, upsizeWipes, upsizeTotal = upsize(start_date, end_date)
+
+        upsizeRow = 125
+        upsizeAvance = 5
+        
+        anotar_datos_excel(upsizeBeard, columna, upsizeRow, False, actualMonth)
+        upsizeRow = upsizeRow + upsizeAvance
+
+        anotar_datos_excel(upsizeWipes, columna, upsizeRow, False, actualMonth)
+        upsizeRow = upsizeRow + upsizeAvance
+
+        anotar_datos_excel(upsizeTotal, columna, upsizeRow, False, actualMonth)
+
+    if(hear_var == 1):
+        hearTotal, hearList = hear(start_date, end_date)
+
+        heareRowTotal = 141
+        heareRow = 145
+        hearAvance = 3
+        
+        anotar_datos_excel(hearTotal, columna, heareRowTotal, False, actualMonth)
+
+        for h in hearList:
+            anotar_datos_excel(h, columna, heareRow, False, actualMonth)
+            heareRow = heareRow + hearAvance
 
 if funnels_report:
     if archivos['Customized Kit - Funnel'] != None:
@@ -96,24 +142,24 @@ if funnels_report:
     if archivos['Buy Again - Funnel'] != None:
         get_funnel(archivos['Buy Again - Funnel'], 'Buy Again - Funnel.xlsx', columna, 26, folder_name, dropbox_var, drive_var, actualMonth)
 
-    if archivos['Buy Again Reactivate - Funnel'] != None:
-        get_funnel(archivos['Buy Again Reactivate - Funnel'], 'Buy Again Reactivate - Funnel.xlsx', columna, 31, folder_name, dropbox_var, drive_var, actualMonth)
-
-    if archivos['Buy Again Without Sub - Funnel'] != None:
-        get_funnel(archivos['Buy Again Without Sub - Funnel'], 'Buy Again Without Sub - Funnel.xlsx', columna, 37, folder_name, dropbox_var, drive_var, actualMonth)
-
     if archivos['My Subscriptions - Funnel'] != None:
-        get_funnel(archivos['My Subscriptions - Funnel'], 'My Subscriptions - Funnel.xlsx', columna, 31+12, folder_name, dropbox_var, drive_var, actualMonth)
+        get_funnel(archivos['My Subscriptions - Funnel'], 'My Subscriptions - Funnel.xlsx', columna, 31, folder_name, dropbox_var, drive_var, actualMonth)
+
+    if archivos['My Subscriptions Reactivate - Funnel'] != None:
+        get_funnel(archivos['My Subscriptions Reactivate - Funnel'], 'My Subscriptions Reactivate - Funnel.xlsx', columna, 36, folder_name, dropbox_var, drive_var, actualMonth)
+
+    if archivos['My Subscriptions Without Sub - Funnel'] != None:
+        get_funnel(archivos['My Subscriptions Without Sub - Funnel'], 'My Subscriptions Without Sub - Funnel.xlsx', columna, 42, folder_name, dropbox_var, drive_var, actualMonth)
 
     if archivos['NPD mail - Funnel'] != None:
-        get_funnel(archivos['NPD mail - Funnel'], 'NPD mail - Funnel.xlsx', columna, 37+12, folder_name, dropbox_var, drive_var, actualMonth)
+        get_funnel(archivos['NPD mail - Funnel'], 'NPD mail - Funnel.xlsx', columna, 49, folder_name, dropbox_var, drive_var, actualMonth)
 
     if archivos['NPD account - Funnel'] != None:
-        get_funnel(archivos['NPD account - Funnel'], 'NPD account - Funnel.xlsx', columna, 41+12, folder_name, dropbox_var, drive_var, actualMonth)
+        get_funnel(archivos['NPD account - Funnel'], 'NPD account - Funnel.xlsx', columna, 53, folder_name, dropbox_var, drive_var, actualMonth)
 
-    indiceLandingsBeard = 107
-    indiceLandingsHair = 150
-    indiceLandingsOther = 187
+    indiceLandingsBeard = 170
+    indiceLandingsHair = 213
+    indiceLandingsOther = 256
     avanceLandings = 6
 
     # Orden exacto según tu lista

@@ -11,10 +11,7 @@ def normalize_admin_status(s) -> str:
 
 
 def is_verified_admin_status(admin_status: str) -> bool:
-    """
-    Una review es verificada si adminStatus contiene 'VERIFIED'
-    (case-insensitive). Ej: 'Verified Review'
-    """
+
     return "VERIFIED" in normalize_admin_status(admin_status)
 
 
@@ -28,10 +25,7 @@ def safe_int(v):
 
 
 def ajustar_ancho_columnas(archivo_excel: str) -> None:
-    """
-    Ajusta automáticamente el ancho de las columnas del Excel
-    (misma lógica que usas en otros reportes)
-    """
+ 
     try:
         wb = load_workbook(archivo_excel)
 
@@ -64,11 +58,6 @@ def read_reviews_json(json_path: str) -> dict:
 
 
 def build_report_from_reviews(data: dict):
-    """
-    Filtros:
-    - adminStatus contiene 'verified'
-    - rating = 4 o 5
-    """
 
     items = data.get("itemsList", []) or []
     records = []
@@ -134,12 +123,7 @@ def build_report_from_reviews(data: dict):
 
 
 def main():
-    """
-    Lee el archivo fijo 'reviews.json'
-    Genera:
-      - verified_reviews_4_5.xlsx
-      - verified_reviews_4_5.csv
-    """
+
     input_file = "reviews.json"
     print(f"Leyendo {input_file}...")
 

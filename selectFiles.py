@@ -53,9 +53,9 @@ def seleccionar_archivos_para_casos():
         "Shop - Funnel": None,
         "My Account - Funnel": None,
         "Buy Again - Funnel": None,
-        "Buy Again Reactivate - Funnel": None,
-        "Buy Again Without Sub - Funnel": None,
         "My Subscriptions - Funnel": None,
+        "My Subscriptions Reactivate - Funnel": None,
+        "My Subscriptions Without Sub - Funnel": None,
         "NPD account - Funnel": None,
         "NPD mail - Funnel": None,
 
