@@ -1,348 +1,444 @@
-# 1. Business Metrics Extraction and Reporting Tool
+# Cleverman Metrics – Business Reporting Suite
 
 ## Overview
 
-This project provides a set of Python scripts designed to extract, process, and visualize business metrics from a database. The primary goal is to generate comprehensive Excel reports that track key performance indicators (KPIs) on a daily basis.
+This project provides a collection of Python scripts designed to extract, process, and visualize business metrics from Cleverman's database. The primary goals are:
 
-## Features
+1. Generate comprehensive **Monthly Reports** in Excel (orders, sales, renewals, payment errors, funnels, and more).
+2. Generate the **Full Control (FC) Report** that tracks subscription renewal behavior.
+3. Read and upload **customer reviews** from the SUVAE platform to the production database.
 
-The project currently supports the extraction and reporting of three main types of metrics:
+---
 
-1. **Order Metrics**
-2. **Sales and Renewals Metrics**
-3. **Payment Error Metrics**
+## Table of Contents
 
-### Key Functionalities
+1. [Prerequisites & Installation](#1-prerequisites--installation)
+2. [Configuration](#2-configuration)
+3. [Monthly Report – `main.py`](#3-monthly-report--mainpy)
+4. [Full Control Report – `fcReport.py`](#4-full-control-report--fcreportpy)
+5. [Reviews Pipeline](#5-reviews-pipeline)
+   - [Step 1 – Read Reviews – `read_reviews.py`](#step-1--read-reviews--read_reviewspy)
+   - [Step 2 – AI Enrichment (pros & cons)](#step-2--ai-enrichment-pros--cons)
+   - [Step 3 – Upload Reviews – `upload_reviews_to_dev_legacy.py`](#step-3--upload-reviews--upload_reviews_to_dev_legacypy)
+6. [Supporting Modules](#6-supporting-modules)
+7. [Cloud Upload](#7-cloud-upload)
+8. [General Metrics Report](#8-general-metrics-report)
+9. [Project Structure](#9-project-structure)
 
-- Retrieve data from a MySQL database for a specified date range
-- Process and aggregate data on a daily basis
-- Generate line charts and bar charts for visual analysis
-- Export results to Excel spreadsheets with multiple sheets and visualizations
+---
 
-## Project Structure
+## 1. Prerequisites & Installation
 
-### Main Scripts
+### Python Version
 
-1. `orders.py`
+- Python **3.10+** (type hints such as `dict[str, ...]` are used in several files)
 
-This script focuses on querying and processing sales data from the database, differentiating between new and old users, as well as recurring and non-recurring orders. The results are visualised in graphs embedded in an Excel file.
-  
-  - Functions:
-  
-    - Data Query
-    Executes SQL queries to retrieve order data from bi.fact_orders and bi.fact_sales_order_items.
-    Filters data by dates and excludes statuses such as ‘CANCELLED’ and ‘PAYMENT_ERROR’.
-    
-    - Data Processing
-    Split data into subgroups: new users (SUBS, OTO, MIX) and old users (SUBS, OTO, MIX), plus recurring orders.
-    Adds additional columns such as date and performs daily calculations.
-         * Total revenue
-         * Number of sales
-         * Total items sold
-         * Average items per order
-         * Average order value
-    
-    - Charts and Excel
-    Generate charts to visualise metrics such as revenue, number of sales and average per order.
-    Use the save_dataframe_to_excel module to save this data to an Excel file with charts.
+### Required Libraries
 
+Install all dependencies with a single command:
 
-2. `payments.py`
-   
-This script processes payment error data from the database, segmented by groups and dates. The results are analysed to identify patterns of errors and graphs and reports are generated in an Excel file.
+```bash
+pip install pandas mysql-connector-python matplotlib openpyxl tkcalendar xlsxwriter \
+            google-api-python-client google-auth-httplib2 google-auth-oauthlib \
+            dropbox python-dotenv
+```
 
-  - Functions:
-  
-    - Data Query
-    Execute a SQL query to get payment data from sales_and_subscriptions.payments.
-    Filter by date using query_start_date, calculated as one month before start_date.
-    
-    - Data Processing
-    Group data by entityId and calculate metrics related to errors and resolutions.
-    Identifies the first error and the date the error was successfully resolved.
-    
-    - Metrics Calculation
-    Creates daily metrics for errors and resolutions.
-    Calculates overall totals for errors and resolutions.
-    
-    - Error Reason Analysis
-    Extract declination codes based on error metadata.
-    
-    - Charting and Reporting
-    Generates graphs to visualise daily errors and resolutions.
-    Saves data to an Excel file using save_dataframe_to_excel and save_error_reasons_with_chart.
+> **Note:** `tkinter` is part of the Python standard library on most systems. On some Linux distributions you may need to install it separately (`sudo apt-get install python3-tk`).
 
+### Summary of Dependencies by Script
 
-3. `renewalsAndNoRecurrents.py`
-   
-This script is responsible for processing sales data from the database, performing daily calculations and plotting the results in an Excel file.   
+| Library | Used by |
+|---|---|
+| `pandas` | All scripts |
+| `mysql-connector-python` | `main.py`, `fcReport.py`, `upload_reviews_to_dev_legacy.py`, and all DB-querying scripts |
+| `openpyxl` | `fcReport.py`, `read_reviews.py`, `excel_creator.py` |
+| `matplotlib` | `excel_creator.py` and chart-generating scripts |
+| `tkinter` + `tkcalendar` | `date_selector.py`, `selectFiles.py` |
+| `xlsxwriter` | `ga4Funnels.py` |
+| `google-api-python-client`, `google-auth-*` | `uploadCloud.py` |
+| `dropbox` | `uploadCloud.py` |
+| `python-dotenv` | `upload_reviews_to_dev_legacy.py` |
 
-  - Functions:
-  
-    - Data Query
-    Executes an SQL query to retrieve data from bi.fact_orders between the specified dates (start_date and end_date).
-    Excludes cancelled and payment error orders.
-    
-    - Data Processing
-    Groups data by date and separates recurring and non-recurring orders.
-    Calculates daily metrics and grand totals.
-    Charts
-    
-    - Excel generation
-    Uses the save_dataframe_to_excel module to save processed data to an Excel file with embedded charts.
+---
 
+## 2. Configuration
 
-4. `main.py`
-   
-This file serves as an entry point for the management and execution of processes related to orders, sales, payment errors based on user-selected dates and Google Analyticts funnels.
+### Database Connection
 
-### Supporting Modules
+Database credentials are stored in a **`.env`** file at the root of the repository:
 
-- `date_selector.py`:
-  
-This script uses the Tkinter library to create a graphical interface that allows users to select dates and report options to generate an Excel file with specific data.
+```
+DB_HOST = <aurora-mysql-host>
+DB_USER = <db-username>
+DB_PASSWORD = <db-password>
+```
 
-  - Functions:
+The scripts load these values automatically via `python-dotenv`. Make sure the `.env` file exists before running any script that queries the database.
 
-    - Graphical interface
-    Allows the user to select a start date and an end date using an interactive calendar (tkcalendar).
-    Users can enter a name for the file in which the processed data will be saved.
-    
-    - Variable Selection
-    Provides options to select different types of reports, including all orders, single orders, sales and payment errors.
-    Provides quick select/deselect buttons and options to enable/disable specific sections of reports.
-    
-    - Report Generation
-    Once dates and options are selected, the script returns these values along with the desired file name and options selected.
+For the main reporting scripts (`main.py`, etc.), the database connection is handled inside `modules/database_queries.py`. If you need to change the connection details there instead, open `modules/database_queries.py` and update the `host`, `user`, and `password` variables.
 
-    - Data Validation
-    Verifies that all required fields are complete before proceeding with report generation.
+> ⚠️ **Never commit the `.env` file or `credentials.json` to version control.** They are already listed in `.gitignore`.
 
+---
 
-- `excel_creator.py`:
+## 3. Monthly Report – `main.py`
 
-This script performs Excel file generation using the openpyxl library, as well as creating graphs using matplotlib. The data is processed based on the selection of variables and metrics, and stored in Excel sheets with relevant graphs.
+`main.py` is the **main entry point** for generating the monthly business metrics report. It orchestrates multiple sub-scripts that query the database and process GA4 funnel data, then consolidates everything into a single Excel file.
 
-  - Functions:
-  
-    - save_dataframe_to_excel
-    Creates an .xlsx file with different sheets including tabular data and charts.
-    Uses matplotlib to generate charts as images and integrates them into the Excel sheets.
-    
-    - line_chart
-    Creates a line chart to visualise selected metrics per day and saves it as an image, then inserts it into the Excel sheet.
-    
-    - bar_chart
-    Generates a bar chart to compare metrics between different data sets, such as new and old, recurring and non-recurring.
-    
-    - save_error_reasons_with_chart
-    Saves error reasons in a new Excel sheet with dynamic colours based on error types.
-    Adds a bar chart showing the number of errors by type.
-    
-    - save_dataframe_to_excel_orders
-    Creates a sheet with graphs and processed data related to specific orders.
+### What it does
 
+- Opens a **GUI selector** for the report type (Funnels only, Database only, or both)
+- Opens a **GUI date selector** to pick the reporting period and the modules to include
+- Queries the database for each selected metric and generates individual Excel files
+- Processes GA4 funnel CSV files (downloaded from Google Analytics)
+- Records all metrics into the shared `metricas.xlsx` tracker
+- Optionally uploads generated files to **Dropbox** or **Google Drive**
+- Produces a final `Monthly Report <Month>.xlsx` file
 
-- `database_queries.py`:
+### GA4 Funnels – Important Prerequisite
 
-The execute_query function allows you to execute an SQL query and return the results in a pandas DataFrame. This makes it easy to work with data extracted from a MySQL database and manipulate or analyse it using data analysis operations.
+Before running `main.py`, you must **manually download the funnel CSV files from Google Analytics 4 (GA4)**:
 
+1. Go to [Google Analytics](https://analytics.google.com/analytics/web/?authuser=1#/p338732175/reports/reportinghub)
+2. Navigate to the desired funnel report (e.g. *Customized Kit*, *All In One*, *Shop*, etc.)
+3. Click the **Download** button and select **CSV** format
 
-- `colors.py`:
+   ![GA4 Download Example](https://github.com/user-attachments/assets/5bbb15ef-a7e8-4d66-af32-aaf4b38d0e17)
 
-The lighten_color function takes a hexadecimal colour as input and returns a lighter colour based on an intensity factor (default to 0.5). This is useful for adjusting colours in charts or spreadsheets, providing smoother visual variety.
+4. Repeat for each funnel you want to include in the report
+5. When `main.py` prompts you to select files, pick the corresponding CSV for each funnel
 
-## Prerequisites
+### Supported funnels
 
-- Python 3.8+
-- Required Libraries:
-  * pandas
-  * mysql-connector-python
-  * matplotlib
-  * openpyxl
-  * tkinter
-  * tkcalendar
+| Funnel Name | Description |
+|---|---|
+| Customized Kit - Funnel | Main kit purchase funnel |
+| All In One - Funnel | All-in-one kit funnel |
+| Shop - Funnel | Store funnel |
+| My Account - Funnel | Account management funnel |
+| Buy Again - Funnel | Repurchase funnel |
+| My Subscriptions - Funnel | Subscription management |
+| My Subscriptions Reactivate - Funnel | Reactivation flow |
+| My Subscriptions Without Sub - Funnel | Non-subscriber flow |
+| NPD mail - Funnel | NPD email flow |
+| NPD account - Funnel | NPD account flow |
+| Beard / Hair landing page funnels | Multiple color variants |
 
-## Installation
+### Report sections (selectable in GUI)
 
-1. Clone the repository
-2. Install required dependencies:
-   ```bash
-   pip install pandas mysql-connector-python matplotlib openpyxl tkinter tkcalendar
+| Option | Script called | Description |
+|---|---|---|
+| All orders | `orders.py` | New & existing user orders |
+| Unique orders | `orders.py` | De-duplicated orders |
+| Sales | `renewalsAndNoRecurrents.py` | Recurring & non-recurring sales |
+| Payment errors | `payments.py` | Payment failure analysis |
+| Expected renewals | `exceptedRenewals.py` | Renewal forecasting |
+| Renewal frequency | `realRenewalFrecuency.py` | Frequency of renewals |
+| Full control | `fullContol.py` | FC subscription metrics |
+| Subscriptions | `subscriptions.py` | Subscription breakdown |
+| Refill | `refill.py` | Refill orders |
+| Upsize | `upsize.py` | Upsell metrics |
+| How did you hear from us | `howHearFromUs.py` | Attribution survey |
+
+### How to run
+
+```bash
+python main.py
+```
+
+A series of GUI windows will appear guiding you through:
+1. Selecting the report type (funnels / database / both)
+2. Selecting the GA4 funnel CSV files (if applicable)
+3. Selecting the date range and report modules (if database is selected)
+4. Selecting the cloud upload destination (Dropbox / Google Drive / local only)
+
+> **Date selection tip:** Choose the end date as the day **after** the last day you want included (e.g. for Oct 1–10, set start = Oct 1 and end = Oct 11).
+
+---
+
+## 4. Full Control Report – `fcReport.py`
+
+`fcReport.py` generates the **Full Control (FC) tracker**, which measures the behavior of subscribers enrolled in the SMS renewal program.
+
+### What it does
+
+- Queries the `prod_sales_and_subscriptions` schema to get the history of subscriptions enrolled in Full Control (via `first_sms_renewal_versions` and `renewals` tables)
+- Calculates enriched columns:
+  - **Unique Subscription Flag** – marks the first appearance of each subscription
+  - **Is Reactivation Renewal** – flags renewals that happened on the same day as enrollment
+  - **Reactiv renewal 1** – identifies subscriptions that reactivated on day 1
+- Builds **10 monthly aggregated tables**:
+
+| Table | Description |
+|---|---|
+| `customers_joined_program` | Total new subscribers enrolled per month |
+| `reactivation_renewals` | Subscribers who enrolled and bought the same day |
+| `enrolled_bought_same_day_and_bought_more_than_once` | Same-day buyers who also renewed at least once more |
+| `first_renewal_not_reactivation` | Subscribers whose first renewal happened on a different day |
+| `no_renewals_yet` | Subscribers who enrolled but never renewed |
+| `unique_subscriptions_active_processing` | Active + Processing subscriptions per cohort month |
+| `unique_subscriptions_active_processing_onhold` | Active + Processing + On Hold |
+| `all_renewals_after_enrollment` | Total program renewals |
+| `second_renewal` | Second renewal per subscriber |
+| `second_or_more_renewals` | Renewals #2 and beyond |
+
+- Opens the Excel template **`Ecomm initiatives trackers.xlsx`** and fills in the **"Full control"** sheet by matching months from the template headers (row 2, columns B–Z) with the calculated data
+- Saves the result as **`Ecomm initiatives trackers - filled.xlsx`**
+
+### How to run
+
+```bash
+python fcReport.py
+```
+
+**Prerequisites:**
+- The file `Ecomm initiatives trackers.xlsx` must exist in the same folder as `fcReport.py`
+- The `.env` file must contain valid database credentials
+
+### Template requirements
+
+The script reads month headers from **row 2, columns B through Z** of the "Full control" sheet. Months must be formatted as dates (e.g. `2024-01-01` or any format parseable by `pandas.to_datetime`). The script writes values into the following rows:
+
+| Row | Metric |
+|---|---|
+| 4 | Customers joined the program |
+| 15 | Reactivation renewals |
+| 16 | Enrolled + bought same day + bought again |
+| 20 | First renewal (not a reactivation) |
+| 21 | No renewals yet |
+| 24 | Active + Processing |
+| 26 | Active + Processing + On Hold |
+| 40 | All renewals after enrollment |
+| 42 | Second renewal |
+| 43 | Second or more renewals |
+
+---
+
+## 5. Reviews Pipeline
+
+The reviews pipeline consists of **three sequential steps** to import customer reviews from the SUVAE platform into the production database.
+
+---
+
+### Step 1 – Read Reviews – `read_reviews.py`
+
+#### Where to get the JSON
+
+1. Go to the **SUVAE** platform review page in your browser
+2. Open the **browser developer tools** (F12) and navigate to the **Network** tab
+3. Reload the page and look for a network request that returns the reviews data (usually a `GET` request that returns a JSON with an `itemsList` field)
+4. Copy the response body (the full JSON)
+5. Save it as **`reviews.json`** in the root of the repository
+
+#### What the script does
+
+- Reads `reviews.json`
+- Filters only reviews that have `adminStatus` containing `"VERIFIED"` and a rating of **4 or 5 stars**
+- Maps star ratings to `recommendation` values (5★ → 10, 4★ → 8)
+- Extracts fields: `Product`, `SKU`, `Order ID`, `headline`, `comment`, `nickname`, `email`, `recommendation`, `overallrating`, `date`
+- Generates two output files:
+  - **`verified_reviews_4_5.xlsx`** – Excel workbook with the filtered reviews and a summary sheet
+  - **`verified_reviews_4_5.csv`** – CSV version of the same data (used in Step 3)
+
+#### How to run
+
+```bash
+python read_reviews.py
+```
+
+---
+
+### Step 2 – AI Enrichment (pros & cons)
+
+After running `read_reviews.py`, the resulting CSV/Excel file **does not yet contain the `pros` and `cons` columns** required by the database.
+
+You must use an **AI tool** (e.g. ChatGPT, Claude, Gemini, etc.) to:
+
+1. Upload the `verified_reviews_4_5.csv` (or `.xlsx`) file to the AI tool
+2. Ask the AI to read each review's `comment` field and generate two new columns:
+   - **`pros`** – a serialized PHP array (`a:N:{...}`) summarizing positive aspects mentioned in the comment
+   - **`cons`** – a serialized PHP array (`a:N:{...}`) summarizing negative aspects mentioned in the comment (or `a:0:{}` if none)
+3. Download the enriched CSV from the AI tool and save it as **`verified_reviews_json_format.csv`** in the root of the repository
+
+> **Format note:** The `pros` and `cons` columns must follow the legacy **PHP serialized array format** used by the `prod_ecommerce.review` table, for example:
+> `a:2:{i:0;s:14:"Easy to apply";i:1;s:20:"Great color payoff";}`
+> If the AI tool produces plain text lists, you will need to convert them to this format before proceeding.
+
+---
+
+### Step 3 – Upload Reviews – `upload_reviews_to_dev_legacy.py`
+
+#### What the script does
+
+- Reads **`verified_reviews_json_format.csv`** (output from Step 2)
+- Connects to the `prod_ecommerce` MySQL database
+- For each review row:
+  - Generates a unique `REV...` review ID
+  - Determines the `productReviewTypeId` from the SKU (beard kit, all-in-one, grooming tools, etc.)
+  - Maps the SKU to a product image via `SKU_TO_PICTURE`
+  - Normalizes the date, nickname, rating, and recommendation fields
+  - Inserts the row into the `review` table with `visible = 0` (hidden until manually approved)
+- Commits every 50 rows and prints progress
+
+#### Required CSV columns
+
+| Column | Description |
+|---|---|
+| `sku` | Product SKU |
+| `overallrating` | Star rating (integer 1–5) |
+| `date` | Review date (ISO 8601 format) |
+| `headline` | Review title |
+| `comment` | Full review text |
+| `nickname` | Reviewer name (only first word is used) |
+| `email` | Reviewer email |
+| `recommendation` | Numeric recommendation score |
+| `pros` | PHP serialized array of pros |
+| `cons` | PHP serialized array of cons |
+
+#### How to run
+
+```bash
+python upload_reviews_to_dev_legacy.py
+```
+
+**Prerequisites:**
+- `verified_reviews_json_format.csv` must exist in the root folder
+- `.env` file must contain valid `DB_HOST`, `DB_USER`, and `DB_PASSWORD` values
+
+> ⚠️ Reviews are inserted with **`visible = 0`**. After uploading, they must be manually set to visible (`visible = 1`) in the database or through the admin panel before they appear on the website.
+
+---
+
+## 6. Supporting Modules
+
+All shared modules live in the **`modules/`** directory.
+
+### `modules/database_queries.py`
+
+Provides the `execute_query(sql)` function that runs any SQL string against the configured MySQL database and returns a `pandas.DataFrame`.
+
+### `modules/date_selector.py`
+
+A Tkinter-based GUI that lets the user:
+- Select start and end dates using an interactive calendar (`tkcalendar`)
+- Enter the output folder name
+- Toggle which report sections to include (orders, sales, payment errors, renewals, FC, subscriptions, refill, upsize, etc.)
+
+Returns all selections to `main.py`.
+
+### `modules/excel_creator.py`
+
+Handles all Excel file generation using `openpyxl` and `matplotlib`:
+- **`save_dataframe_to_excel`** – creates a `.xlsx` with tabular data and embedded line/bar charts
+- **`line_chart`** – daily metric line chart saved as image and inserted into Excel
+- **`bar_chart`** – comparative bar chart for new vs. existing users, recurring vs. non-recurring, etc.
+- **`save_error_reasons_with_chart`** – writes payment error reasons with dynamic coloring and a bar chart
+- **`save_dataframe_to_excel_orders`** – specialized sheet for order data with charts
+
+### `modules/colors.py`
+
+Provides `lighten_color(hex_color, factor=0.5)` – returns a lighter version of any hex color, used for chart styling.
+
+---
+
+## 7. Cloud Upload
+
+### `uploadCloud.py`
+
+Supports uploading generated report files to **Google Drive** or **Dropbox**.
+
+#### Google Drive Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project and enable the **Google Drive API**
+3. Download the **OAuth credentials JSON** file
+4. Rename it to `credentials.json` and place it in the root of the repository
+5. On first run, a browser window will open for you to authorize access
+
+#### Dropbox Setup
+
+1. Go to [Dropbox Developers](https://www.dropbox.com/developers/apps)
+2. Create a new app and generate an **access token**
+3. Open `uploadCloud.py` and paste the token on line 32:
+   ```python
+   dbx = dropbox.Dropbox('YOUR_TOKEN_HERE')
    ```
 
-## Usage
+#### How It Works
 
-1. Modify the database_queries.py file inside the modules folder and assign the corresponding values to the host, user and password variables to connect to the database.
-2. Run the file main.py
-3. Use the GUI to:
-   - Select start and end dates. Choose the end date one day after the day you want (e.g. if you want the data from 1 to 10 October, choose 1 October as the start date and 11 October as the end date).
-   - Choose report types
-   - Specify output folder name
+When running `main.py`, a popup will appear after the reports are generated allowing you to select:
+- ✅ **Dropbox** – uploads to `/MyReports/<folder_name>/<filename>`
+- ✅ **Google Drive** – uploads to the configured folder ID
+- (Neither selected) – files are kept locally only
 
-Example report types:
-- New user orders (SUBSCRIPTION/OTO/MIXED)
-- Existing user orders
-- Recurrent orders
-- Sales breakdown
-- Payment error analysis
+---
 
-## Configuration
+## 8. General Metrics Report
 
-- Ensure database connection details are correctly configured in the database connection module
-- Modify SQL queries in respective scripts if database schema changes
+The file **`metricas.xlsx`** (provided in the repository) serves as a centralized tracker where all monthly metrics are recorded.
 
-## Output
+- `report.py` contains `anotar_datos_excel()`, which writes extracted values into the correct rows and columns of `metricas.xlsx`
+- The column (month) is determined by the `columna` variable in `main.py` (default: 18)
+- If you rename the Excel file or the sheet, update the `archivo_excel` and `hoja_nombre` variables in `report.py`
+- This step is optional – if you do not need the centralized tracker, you can delete `metricas.xlsx` and the script will still generate all individual report files
 
-Each report generates an Excel file with:
-- Daily metrics table
-- Line charts for key metrics
-- Optional comparative bar charts
-- Detailed breakdowns by user type and plan
+---
 
+## 9. Project Structure
 
+```
+Cleverman-Metrics/
+├── .env                          # Database credentials (not committed)
+├── credentials.json              # Google Drive OAuth credentials (not committed)
+├── metricas.xlsx                 # Centralized monthly metrics tracker
+├── reviews.json                  # Raw reviews JSON from SUVAE (input for read_reviews.py)
+│
+├── main.py                       # ⭐ Main entry point – Monthly Report
+├── fcReport.py                   # ⭐ Full Control Report
+├── read_reviews.py               # ⭐ Step 1 – Parse reviews JSON
+├── upload_reviews_to_dev_legacy.py # ⭐ Step 3 – Upload reviews to DB
+│
+├── modules/
+│   ├── database_queries.py       # Shared DB query helper
+│   ├── date_selector.py          # GUI date/option selector
+│   ├── excel_creator.py          # Excel & chart generation
+│   └── colors.py                 # Color utilities
+│
+├── orders.py                     # Order metrics
+├── payments.py                   # Payment error metrics
+├── renewalsAndNoRecurrents.py    # Sales & renewals metrics
+├── subscriptions.py              # Subscription breakdown
+├── refill.py                     # Refill orders
+├── upsize.py                     # Upsell metrics
+├── exceptedRenewals.py           # Renewal forecasting
+├── realRenewalFrecuency.py       # Renewal frequency
+├── fullContol.py                 # FC wrapper (calls fcReport logic)
+├── howHearFromUs.py              # Attribution survey
+├── ga4Funnels.py                 # GA4 funnel CSV processor
+├── selectFiles.py                # GUI file selector for CSVs/Stripe files
+├── report.py                     # Writes metrics to metricas.xlsx
+├── uploadCloud.py                # Google Drive & Dropbox upload
+├── block_payments.py             # Stripe blocked payments analysis
+│
+├── repurchase.py                 # Repurchase analytics (various variants)
+├── analisis_repurchase_cancelaciones.py
+├── aov_free_shipping.py
+├── backupPayment.py
+├── backupPaymentMethod.py
+├── colorCancellations.py
+├── midBrownCancellations.py
+├── shadeBeardOrHairCancelations.py
+├── shadeCancelations.py
+└── newRealRenewalFrecuency.py
+```
 
-# 2. Funnel Analytics Dashboard: CSV to Excel Data Processor
+---
 
-## Overview
+## Quick Reference – Which script to run for each task
 
-This Python project processes CSV files exported from Google Analytics to generate comprehensive funnel performance reports with detailed metrics and visualizations. The tools are designed to help track and analyze user journey progression on a daily and monthly basis.
-
-## Features
-
-- **CSV File Processing**: Combines multiple CSV files from Google Analytics
-- **Data Transformation**: 
-  - Cleans and filters raw data
-  - Calculates user progression percentages
-  - Creates comparative step analysis
-- **Visualization**: 
-  - Generates line charts showing step-by-step user progression
-  - Compares percentage transitions between funnel steps
-- **Reporting**: 
-  - Exports processed data and charts to Excel
-  - Provides clear, organized metrics for monthly tracking
-
-## Requirements
-
-- Python 3.7+
-- Libraries:
-  - pandas
-  - matplotlib
-  - tkinter
-  - xlsxwriter
-
-## Installation
-
-1. Install required dependencies:
-   ```bash
-   pip install xlsxwriter
-   ```
-
-## Components
-
-### 1. selectFiles.py
-
-This module facilitates the selection of CSV files. It is especially useful when handling multiple data sources.
-
-  - Functions:
-  
-    - CSV File Selection (seleccionar_archivos_para_casos)
-    Allows the user to select CSV files associated with different case studies and choose a month (first or second) to process the data. It is an interactive graphical interface developed with tkinter that facilitates data entry in a visual and user-friendly way.
-    
-### 2. ga4Funnels.py
-
-This script processes data related to user funnels from CSV files and generates a detailed analysis including charts and graphs. It is ideal for analysing how users progress through a conversion funnel and calculating key metrics.
-
-  - Functions:
-    
-      - Get the data (get_funnel)
-      Processes a Google Analytics 4 (GA4) CSV file containing funnel data to generate a detailed analysis. This analysis includes organizing data, calculating percentages, and exporting results to an Excel file along with generated graphs.
-  
-## Usage
-
-1. Ensure all required libraries are installed
-2. Run `ga4Data.py`
-3. Select the corresponding file downloaded from Google Analytics with each report.
-  - To obtain these files you need to go to Google analytics and select any of the funnels that you want to obtain data and download it in csv format.
-    
-    ![image](https://github.com/user-attachments/assets/5bbb15ef-a7e8-4d66-af32-aaf4b38d0e17)
-
-    [Google Analytics](https://analytics.google.com/analytics/web/?authuser=1#/p338732175/reports/reportinghub?params=_u..nav%3Dmaui)
-
-4. Select the month in which you want the data to be annotated in the metrics.xlsx file (see 3. General Report section below).
-5. Review generated Excel report with metrics and charts
-
-## How It Works
-
-1. Select multiple CSV files from Google Analytics
-2. Data is transformed to show:
-   - Active users per step
-   - Percentage progression between steps
-   - Daily and total metrics
-3. Line charts visualize progression
-4. Data exported to Excel with embedded charts
-
-# 3. General Report 
-
-## Overview
-
-This section allows you to record the data obtained from all the files generated in the previous sections in a single file to centralize the information.
-
-## How It Works
-
-1. Have the file `metricas.xlsx` (provided in the repository) located in the same base folder of the repository
-2. If the name of the file or sheet is changed, go to `report.py` and change the variables `archivo_excel` and `hoja_nombre` to the corresponding ones.
-3. This step is not necessary for the execution of the code, so if you do not want to obtain these metrics, the `metricas.xlsx` file can be deleted.
-
-# 4. Upload Cloud 
-
-## Overview
-
-This section allows you to upload the report files and the general metrics file to the cloud, either in Google drive or Dropbox.
-
-## Requirements
-
-- Python 3.7+
-- Libraries:
-  - google-api-python-client
-  - google-auth-httplib2
-  - google-auth-oauthlib
-  - dropbox
-- Authentication
-  - Google drive credentials file (.json)
-  - Dropbox token
-
-## Installation
-
-1. Install required dependencies:
-   ```bash
-   pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib dropbox
-   ```
-## Components
-
-### 1. uploadCloud.py
-
-This module allows you to upload files to the cloud
-
-  - Functions:
-
-    - upload_to_drive
-    Allows the user to upload files to Google Drive
-
-    - upload_to_dropbox
-    Allows the user to upload files to Dropbox
- 
-## How It Works
-
-1. Get Google drive credentials file:
-  - Go to [Google Cloud Console](https://console.cloud.google.com/)
-  - Create a project and enable the Google Drive API.
-  - Download the credentials JSON file.
-  - Rename the file to credentials.json and place it in the root directory
-2. Get Dropbox token:
-  - Go to [Dropbox Developers](https://www.dropbox.com/developers/apps)
-  - Create a new app and generate an access token.
-  - Paste the token in the uploadCloud.py file on line 32:
-  -     dbx = dropbox.Dropbox(‘TOKEN’)
-3. When you run the script after selecting the files for the funels and selecting the dates and database queries you want to perform, a window will pop up with two checkboxes, Dropbox and Google Drive, select where you want the file to be saved and continue. If you do not select any of them the file will only be stored locally.
-   
+| Task | Script |
+|---|---|
+| Generate the full monthly report | `python main.py` |
+| Generate the Full Control tracker | `python fcReport.py` |
+| Parse reviews JSON from SUVAE | `python read_reviews.py` |
+| Upload enriched reviews to DB | `python upload_reviews_to_dev_legacy.py` |
