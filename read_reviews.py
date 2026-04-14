@@ -72,11 +72,11 @@ def build_report_from_reviews(data: dict):
         if rating not in (4, 5):
             continue
 
-        recomendation = 0
+        recommendation = 0
         if rating == 5:
-            recomendation = 10
+            recommendation = 10
         if rating == 4:
-            recomendation = 8
+            recommendation = 8
 
         records.append(
             {
@@ -87,8 +87,8 @@ def build_report_from_reviews(data: dict):
                 "comment": fb.get("feedBack"),
                 "nickname": fb.get("nameOnAmazon"),
                 "email": fb.get("email"),
-                "recomendation": recomendation,
-                "overall_rating": rating,
+                "recommendation": recommendation,
+                "overallrating": rating,
                 "date": fb.get("createdAt"),
             }
         )
@@ -103,8 +103,8 @@ def build_report_from_reviews(data: dict):
             "comment",
             "nickname",
             "email",
-            "recomendation",
-            "overall_rating",
+            "recommendation",
+            "overallrating",
             "date",
         ],
     )

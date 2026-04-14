@@ -20,9 +20,9 @@ from upsize import upsize
 
 funnels_report = True
 database_report = True
-stripe_block_payments = True
+stripe_block_payments = False
 folder_name = 'funnels'
-columna = 15
+columna = 18
 dropbox_var = False
 drive_var = False
 
@@ -83,7 +83,7 @@ if database_report:
         # anotar_datos_excel(renewalFC, columna, 78+12, False, actualMonth)
 
     if(subs_var == 1):
-        subsPercentage, subsNew, subsExisting = subs(start_date, end_date)
+        subsPercentage, subsNew, subsExisting, otherSubs = subs(start_date, end_date)
 
         subsRow = 100
 
@@ -94,15 +94,18 @@ if database_report:
         subsRow = subsRow + 4
 
         anotar_datos_excel(subsExisting, columna, subsRow, False, actualMonth)
+        subsRow = subsRow + 4
+
+        anotar_datos_excel(otherSubs, columna, subsRow, False, actualMonth)
 
     if(refill_var == 1):
         refillData = refill(start_date, end_date)
-        anotar_datos_excel(refillData, columna, 113, False, actualMonth)
+        anotar_datos_excel(refillData, columna, 121, False, actualMonth)
     
     if(upsize_var == 1):
-        upsizeBeard, upsizeWipes, upsizeTotal = upsize(start_date, end_date)
+        upsizeBeard, upsizeWipes, upsizeTotal, upsizeShampoo, upsizeConditioner = upsize(start_date, end_date)
 
-        upsizeRow = 125
+        upsizeRow = 133
         upsizeAvance = 5
         
         anotar_datos_excel(upsizeBeard, columna, upsizeRow, False, actualMonth)
@@ -111,13 +114,19 @@ if database_report:
         anotar_datos_excel(upsizeWipes, columna, upsizeRow, False, actualMonth)
         upsizeRow = upsizeRow + upsizeAvance
 
+        anotar_datos_excel(upsizeShampoo, columna, upsizeRow, False, actualMonth)
+        upsizeRow = upsizeRow + upsizeAvance
+
+        anotar_datos_excel(upsizeConditioner, columna, upsizeRow, False, actualMonth)
+        upsizeRow = upsizeRow + upsizeAvance
+
         anotar_datos_excel(upsizeTotal, columna, upsizeRow, False, actualMonth)
 
     if(hear_var == 1):
         hearTotal, hearList = hear(start_date, end_date)
 
-        heareRowTotal = 141
-        heareRow = 145
+        heareRowTotal = 159
+        heareRow = 163
         hearAvance = 3
         
         anotar_datos_excel(hearTotal, columna, heareRowTotal, False, actualMonth)
@@ -157,9 +166,9 @@ if funnels_report:
     if archivos['NPD account - Funnel'] != None:
         get_funnel(archivos['NPD account - Funnel'], 'NPD account - Funnel.xlsx', columna, 53, folder_name, dropbox_var, drive_var, actualMonth)
 
-    indiceLandingsBeard = 170
-    indiceLandingsHair = 213
-    indiceLandingsOther = 256
+    indiceLandingsBeard = 188
+    indiceLandingsHair = 231
+    indiceLandingsOther = 268
     avanceLandings = 6
 
     # Orden exacto según tu lista
@@ -194,6 +203,7 @@ if funnels_report:
         "Best hair color one time",
         "Best hair color sub",
         "Customized beard sub",
+        "Customized Kit - Funnel Total"
     ]
 
     # Helper para no repetir lógica

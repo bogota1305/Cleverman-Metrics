@@ -63,6 +63,32 @@ def subs(start_date, end_date):
     AND fo.is_first_order = 1;
     """
 
+    query_refill_subs = f"""
+    SELECT s.id, s.createdAt, i.itemId, s2.timesRemaining, s.nextProcessingDate, s.status FROM prod_sales_and_subscriptions.subscriptions s
+    JOIN prod_sales_and_subscriptions.subscription_items s2 ON s2.subscriptionId = s.id
+    JOIN prod_sales_and_subscriptions.items_item_groups i ON i.itemId = s2.itemId
+    WHERE i.itemGroupId IN ("IG00000000000000000000000000000043", "IG00000000000000000000000000000044")
+    AND s.createdAt > "{start_date}" AND s.createdAt < "{end_date}"
+    AND s2.timesRemaining = -1;
+    """
+
+    query_scrubs_subs = f"""
+    SELECT s.id, s.createdAt, i.itemId, s2.timesRemaining, s.status FROM prod_sales_and_subscriptions.subscriptions s
+    JOIN prod_sales_and_subscriptions.subscription_items s2 ON s2.subscriptionId = s.id
+    JOIN prod_sales_and_subscriptions.items_item_groups i ON i.itemId = s2.itemId
+    WHERE i.itemGroupId IN ("IG00000000000000000000000000000045")
+    AND s.createdAt > "{start_date}" AND s.createdAt < "{end_date}"
+    AND s2.timesRemaining = -1;
+    """
+
+    query_aio_subs = f"""
+    SELECT s.id, s.createdAt, i.itemId, s2.timesRemaining, s.status FROM prod_sales_and_subscriptions.subscriptions s
+    JOIN prod_sales_and_subscriptions.subscription_items s2 ON s2.subscriptionId = s.id
+    JOIN prod_sales_and_subscriptions.items_item_groups i ON i.itemId = s2.itemId
+    WHERE i.itemGroupId IN ("IG00000000000000000000000000000030")
+    AND s.createdAt > "{start_date}" AND s.createdAt < "{end_date}"
+    AND s2.timesRemaining = -1;
+    """
     miniSubs = execute_query(query_minisubs)
     subs = execute_query(query_subs)
     oto = execute_query(query_oto)
@@ -70,12 +96,20 @@ def subs(start_date, end_date):
     miniSubsMew = execute_query(new_query_minisubs)
     subsNew = execute_query(new_query_subs)
 
+    refill_subs = execute_query(query_refill_subs)
+    scrubs_subs = execute_query(query_scrubs_subs)
+    aio_subs = execute_query(query_aio_subs)
+
     total_miniSubs = miniSubs['id'].count()
     total_subs = subs['id'].count()
     total_oto = oto['quantity'].sum()
 
     total_miniSubs_new = miniSubsMew['id'].count()
     total_subs_new = subsNew['id'].nunique()
+
+    total_refill_subs = refill_subs['id'].count()
+    total_scrubs_subs = scrubs_subs['id'].count()
+    total_aio_subs = aio_subs['id'].count()
 
     total_miniSubs_existing = total_miniSubs - total_miniSubs_new
     total_subs_existing = total_subs - total_subs_new
@@ -87,8 +121,9 @@ def subs(start_date, end_date):
     subs_new_array = [total_miniSubs_new, total_subs_new]
     subs_existing_array = [total_miniSubs_existing, total_subs_existing]
 
-    return subs_array, subs_new_array, subs_existing_array
+    other_subs_array = [total_refill_subs, total_scrubs_subs, total_aio_subs]
 
+    return subs_array, subs_new_array, subs_existing_array, other_subs_array
 
 
 

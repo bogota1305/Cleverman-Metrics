@@ -85,6 +85,7 @@ def seleccionar_archivos_para_casos():
         "Best hair color one time": None,
         "Best hair color sub": None,
         "Customized beard sub": None,
+        "Customized Kit - Funnel Total": None,
     }
 
     # Guardamos labels por key para actualizar texto cuando asignemos en batch
