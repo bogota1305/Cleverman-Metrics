@@ -89,10 +89,6 @@ def build_report(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataF
         paid_ids = g.loc[g["_status_norm"] == "paid", "Card ID"].astype(str).tolist()
         paid_id = paid_ids[-1] if len(paid_ids) > 0 else None
 
-        # Resolved by backup:
-        # - resolved == True
-        # - all failed attempts used the same Card ID (len(failed_ids) == 1)
-        # - final paid attempt uses a different Card ID than the failed one
         resolved_by_backup = False
         if resolved and len(failed_ids) == 1 and paid_id is not None:
             only_failed_id = next(iter(failed_ids))
@@ -122,11 +118,6 @@ def build_report(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataF
     total_resolved = int((detail_df["Resolved"] == "Yes").sum())
     total_resolved_backup = int((detail_df["Resolved by Backup"] == "Yes").sum())
 
-    # IMPORTANT:
-    # El usuario pidió estos campos y estas fórmulas (hay dos labels muy parecidos, pero respetamos su fórmula):
-    # - porcentaje de errores de pago = total pagos resueltos / total errores de pago
-    # - porcentaje de pagos resueltos = total pagos resueltos / total errores de pago
-    # (son iguales según lo que escribiste; si quieres cambiar uno luego, lo ajustamos)
     summary_df = pd.DataFrame(
         [
             {"Metric": "Total payments", "Value": total_payments},
@@ -209,14 +200,8 @@ def main() -> None:
 
     # Write Excel
     with pd.ExcelWriter(out_path, engine="openpyxl", datetime_format="yyyy-mm-dd hh:mm:ss") as writer:
-        # Sheet requested: only backup-resolved payments
         backup_resolved_df.to_excel(writer, sheet_name="Backup Resolved", index=False)
-
-        # Summary sheet
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
-
-        # (Opcional) Si quieres conservar el detalle completo, descomenta esto:
-        # detail_df.to_excel(writer, sheet_name="All Payments (Detail)", index=False)
 
     print(f"✅ Report written to: {out_path.resolve()}")
     print("Sheets:")

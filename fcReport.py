@@ -555,10 +555,10 @@ def fill_full_control_tracker(
         "first_renewal_not_reactivation": 20,
         "no_renewals_yet": 21,
         "unique_subscriptions_active_processing": 24,
-        "unique_subscriptions_active_processing_onhold": 26,   # en el template, fila 25 es %
+        "unique_subscriptions_active_processing_onhold": 26,   
         "all_renewals_after_enrollment": 40,
-        "second_renewal": 42,                                  # en el template, fila 42 es Renewals that correspond...
-        "second_or_more_renewals": 43,                         # fila 43 es Renewals 2+
+        "second_renewal": 42,                                  
+        "second_or_more_renewals": 43,                        
     }
 
     for table_name, row_idx in row_mapping.items():

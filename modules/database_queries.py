@@ -11,7 +11,6 @@ database="bi"
 
 def execute_query(query):
     """Ejecuta una consulta SQL y devuelve un DataFrame."""
-    global host, user, passwordß
     db_config = {
         "host": os.getenv("DB_HOST"),
         "user": os.getenv("DB_USER"),

@@ -71,7 +71,6 @@ def build_report_from_payments(df: pd.DataFrame):
     - Resolved by Backup = si Resolved y el ÚLTIMO intento SUCCESS tiene backupPayment = true
     """
 
-    # Parse createdAt con milisegundos: '2025-12-12 16:06:21.419'
     df["createdAt"] = pd.to_datetime(df["createdAt"], errors="coerce")
     if df["createdAt"].isna().any():
         bad = df[df["createdAt"].isna()][["id", "entityId", "createdAt"]].head(10)
@@ -124,7 +123,6 @@ def build_report_from_payments(df: pd.DataFrame):
     total_resolved = int((detail_df["Resolved"] == "Yes").sum())
     total_resolved_backup = int((detail_df["Resolved by Backup"] == "Yes").sum())
 
-    # OJO: mantengo exactamente tus fórmulas pedidas (aunque las 2 primeras tasas quedan iguales)
     summary_df = pd.DataFrame(
         [
             {"Metric": "Total payments", "Value": total_payments},
@@ -193,12 +191,8 @@ def main(startDate: str, endDate: str):
         backup_resolved_df.to_excel(writer, sheet_name="Backup Resolved", index=False)
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
-        # Si un día quieres el detalle completo, descomenta:
-        # detail_df.to_excel(writer, sheet_name="All Payments (Detail)", index=False)
-
     ajustar_ancho_columnas(nombre_archivo)
 
-    # Prints de control
     total_payments = len(detail_df)
     total_errors = (detail_df["Had Error"] == "Yes").sum()
     total_resolved = (detail_df["Resolved"] == "Yes").sum()
@@ -218,5 +212,4 @@ def main(startDate: str, endDate: str):
 
 
 if __name__ == "__main__":
-    # Ajusta el rango a lo que necesites
     main("2025-01-01 00:00:00", "2026-01-01 00:00:00")

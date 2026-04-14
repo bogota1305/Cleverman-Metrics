@@ -20,7 +20,6 @@ def open_date_selector():
         root.destroy()
 
     def toggle_all(state):
-        # for var in [all_var] + unique_orders_var + [orders_var, sales_var, payment_errors_var, expected_renewals_var, frequency_var, full_control_var, subs_var, refill_var, upsize_var, hear_var]:
         for var in [all_var] + unique_orders_var + [orders_var, sales_var, payment_errors_var, subs_var, refill_var, upsize_var, hear_var]:
             var.set(state)
 

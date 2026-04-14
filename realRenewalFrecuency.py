@@ -244,5 +244,4 @@ def saveFile(folder_name, file_name, query):
     #upload_to_drive(full_path, folder_id="1F1VZxlp5IxkQEo4WD0Bt8VEJZ28OhGut")
     #upload_to_dropbox(full_path, dropbox_path=f"/MyReports/{folder_name}/{file_name}")
 
-# realRenewalFrequency('2024-01-01', '2025-01-01', 'renewal')
     

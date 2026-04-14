@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-import numpy as np # Necesitamos numpy para np.inf
+import numpy as np
 from modules.database_queries import execute_query
 from uploadCloud import upload_to_drive
 
@@ -38,11 +38,10 @@ def get_total_orders(start_date, end_date, is_subscribed):
     else:
         return 0
 
-# --- Modificación: Pasar is_subscribed a _process_sheet ---
 def generate_order_report(query, filename, start_date, end_date, is_subscribed):
     # Ejecutar la consulta SQL principal
     data = execute_query(query)
-    df = pd.DataFrame(data, columns=['orderNumber', 'createdAt', 'total_amount', 'units', 'content']) # Añadimos 'content' temporalmente si es necesario para futuros análisis, aunque no se usa en este procesamiento directo
+    df = pd.DataFrame(data, columns=['orderNumber', 'createdAt', 'total_amount', 'units', 'content'])
     
     # Obtener total de órdenes para el período y tipo
     total_orders = get_total_orders(start_date, end_date, is_subscribed)
@@ -66,14 +65,11 @@ def generate_order_report(query, filename, start_date, end_date, is_subscribed):
     
     # Crear el archivo Excel
     with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
-        # Ahora pasamos is_subscribed a _process_sheet
         _process_sheet(orders_df, writer, 'Órdenes', total_orders, start_date, end_date, total_attempts, is_subscribed)
         _process_sheet(attempts_df, writer, 'Intentos', total_orders, start_date, end_date, total_attempts, is_subscribed)
     
     print(f"Reporte generado exitosamente: {filename}")
 
-# --- Modificación principal: Función _process_sheet ---
-# Añadimos el parámetro is_subscribed
 def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, end_date=None, total_attempts=None, is_subscribed=False):
     if len(df) == 0:
         # Si el DataFrame está vacío, escribir una hoja vacía con los encabezados principales
@@ -109,8 +105,8 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
 
     # Inicializar variables para métricas adicionales
     total_orders_per_day = None
-    percentage_of_total = None # Porcentaje de este DF sobre el total diario de órdenes
-    conversion_rate = None # Tasa de conversión de la query a órdenes (solo en Intentos)
+    percentage_of_total = None 
+    conversion_rate = None 
 
     # Solo para la hoja de Órdenes
     if sheet_name == 'Órdenes' and total_orders is not None and start_date and end_date:
@@ -118,21 +114,16 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
         end_dt = pd.to_datetime(end_date).date()
         full_period_days = (end_dt - start_dt).days + 1
         total_orders_per_day = total_orders / full_period_days if full_period_days > 0 else 0
-        # Calculamos este porcentaje para la fila del summary_df
         percentage_of_total = (specific_transactions_per_day / total_orders_per_day) if total_orders_per_day > 0 else 0
 
     # Solo para la hoja de Intentos
     if sheet_name == 'Intentos' and total_attempts is not None:
-        # total_attempts es el total de filas de la query principal
-        # len(df) en la hoja Intentos es el número de INTENTOS FALLIDOS de la query
-        # Las órdenes exitosas de la query principal son total_attempts - (Intentos fallidos + Órdenes canceladas que pasaron el filtro + otros casos raros)
-        # Una aproximación es considerar que las órdenes exitosas son las que NO están en este df de intentos fallidos
-        successful_orders = total_attempts - len(df) # Esta es una estimación simplificada
-        conversion_rate = successful_orders / total_attempts if total_attempts > 0 else 0 # Tasa de conversión de la query a una estimación de órdenes exitosas
+        successful_orders = total_attempts - len(df) 
+        conversion_rate = successful_orders / total_attempts if total_attempts > 0 else 0 
 
     # --- Resumen por rangos de precio ---
     price_ranges_summary = pd.DataFrame(columns=['Rango de Precio', 'Total Transacciones', 'Precio Promedio', 'Transacciones por día', 'Porcentaje de Transacciones'])
-    if not df['total_amount'].empty and df['total_amount'].dropna().any(): # Solo crear rangos si hay montos válidos
+    if not df['total_amount'].empty and df['total_amount'].dropna().any():
         # Definir rangos y etiquetas según si está suscrito
         if is_subscribed:
             bins = [0, 15, 30, 45, 60, 75, 90, np.inf]
@@ -141,13 +132,10 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
             bins = [0, 20, 35, 50, 65, 80, 95, np.inf]
             labels = ['0 - 20', '20 - 35', '35 - 50', '50 - 65', '65 - 80', '80 - 95', '> 95']
 
-        # Crear la columna de rango de precio usando pd.cut
         df['price_range'] = pd.cut(df['total_amount'], bins=bins, labels=labels, right=True, include_lowest=True)
 
-        # Agrupar por el nuevo rango de precio y calcular métricas
-        # Usamos size para contar las filas en cada grupo
         price_ranges_summary = df.groupby('price_range', observed=False).agg(
-            total_transactions=('orderNumber', 'size'), # size cuenta filas
+            total_transactions=('orderNumber', 'size'),
             mean_amount=('total_amount', 'mean')
         ).reset_index()
 
@@ -165,9 +153,9 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
 
     # --- Resumen por cantidad de items ---
     items_summary = pd.DataFrame(columns=['Items', 'Total Transacciones', 'Precio Promedio', 'Transacciones por día', 'Porcentaje de Transacciones'])
-    if not df['units'].empty and df['units'].dropna().any(): # Solo crear resumen de items si hay unidades válidas
+    if not df['units'].empty and df['units'].dropna().any():
         items_summary = df.groupby('units', observed=False).agg(
-            total_transactions=('units', 'size'), # size cuenta filas
+            total_transactions=('units', 'size'),
             mean_amount=('total_amount', 'mean')
         ).reset_index()
 
@@ -184,7 +172,6 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
 
 
     # --- Crear el resumen con las métricas básicas y adicionales ---
-    # Se trae de vuelta la fila de Porcentaje de Órdenes sobre total diario para la hoja 'Órdenes'
     summary_data = {
         'Métrica': ['Precio Promedio', 'Items Promedio', f'Transacciones por día (promedio)'],
         'Valor': [avg_amount, avg_units, specific_transactions_per_day]
@@ -194,11 +181,11 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
     if sheet_name == 'Órdenes' and total_orders_per_day is not None:
         summary_data['Métrica'].extend([
             'Órdenes totales por día (promedio)',
-            f'Porcentaje de {sheet_name} sobre total diario' # Se añade de nuevo
+            f'Porcentaje de {sheet_name} sobre total diario'
         ])
         summary_data['Valor'].extend([
             total_orders_per_day,
-            percentage_of_total # Este valor es necesario para la fila
+            percentage_of_total
         ])
 
     # Agregar métrica de conversión para Intentos
@@ -225,9 +212,9 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
     worksheet = writer.sheets[sheet_name]
 
     # Formatos numéricos y de porcentaje
-    num_format = workbook.add_format({'num_format': '#,##0.00'}) # Formato general con 2 decimales
-    percent_format = workbook.add_format({'num_format': '0.00%'}) # Formato de porcentaje
-    int_format = workbook.add_format({'num_format': '0'}) # Formato de entero
+    num_format = workbook.add_format({'num_format': '#,##0.00'})
+    percent_format = workbook.add_format({'num_format': '0.00%'}) 
+    int_format = workbook.add_format({'num_format': '0'})
 
     # --- Ajuste de anchos de columnas y formatos ---
     # Columna A: Métrica / Rango de Precio / Items
@@ -249,7 +236,7 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
     if not items_summary.empty:
          list_col_B_lengths.extend([len(str(int(x))) for x in items_summary['Total Transacciones']])
     max_len_col_B = max(list_col_B_lengths) + 2 if list_col_B_lengths else 15
-    worksheet.set_column(1, 1, max_len_col_B, num_format) # Aplicaremos los formatos específicos celda a celda/rango a rango
+    worksheet.set_column(1, 1, max_len_col_B, num_format)
 
     # Columna C: Precio Promedio (Rango) / Precio Promedio (Items)
     list_col_C_lengths = [len('Precio Promedio')]
@@ -280,51 +267,38 @@ def _process_sheet(df, writer, sheet_name, total_orders=None, start_date=None, e
 
 
     # --- Aplicar formatos especiales a filas específicas del summary básico ---
-    # Aplicar formato numérico a Órdenes totales por día (si existe)
     selected_index_total_daily = summary_df[summary_df['Métrica'] == 'Órdenes totales por día (promedio)'].index
     if not selected_index_total_daily.empty:
         row_idx_total_daily_orders = selected_index_total_daily[0]
-        # Aplicar formato en la fila row_idx + 1 (basado en corrección anterior)
         worksheet.write(row_idx_total_daily_orders + 1, 1, total_orders_per_day, num_format)
 
-    # Aplicar formato porcentual a la métrica de porcentaje sobre total diario (si existe en sheet 'Órdenes')
     if sheet_name == 'Órdenes':
          selected_index_percentage_total_daily = summary_df[summary_df['Métrica'] == f'Porcentaje de {sheet_name} sobre total diario'].index
          if not selected_index_percentage_total_daily.empty:
              row_idx_percentage_total_daily = selected_index_percentage_total_daily[0]
-             # Aplicar formato en la fila row_idx + 1 (basado en corrección anterior)
              worksheet.write(row_idx_percentage_total_daily + 1, 1, percentage_of_total, percent_format)
 
-
-    # Aplicar formato porcentual a la métrica de conversión en Intentos (si existe)
     selected_index_conversion = summary_df[summary_df['Métrica'] == f'Tasa de conversión de la query a Órdenes'].index
     if not selected_index_conversion.empty:
          row_idx_conversion = selected_index_conversion[0]
-         # Aplicar formato en la fila row_idx + 1 (corrección solicitada)
          worksheet.write(row_idx_conversion + 1, 1, conversion_rate, percent_format)
 
 
     # --- Aplicar formato entero a la columna 'Total Transacciones' en las tablas secundarias ---
     col_idx_total_transactions = 1 # La columna 'Total Transacciones' es la segunda columna (índice 1)
 
-    # Rango de filas para price_ranges_summary (desde la fila de datos hasta el final)
-    # La fila de inicio de datos es la fila del encabezado + 1
     price_range_data_start_row = price_range_start_row_in_sheet + 1
     if not price_ranges_summary.empty:
         for i, row_data in enumerate(price_ranges_summary['Total Transacciones']):
-            # Escribimos el valor de nuevo con el formato entero
             worksheet.write(price_range_data_start_row + i, col_idx_total_transactions, row_data, int_format)
 
-    # Rango de filas para items_summary (desde la fila de datos hasta el final)
     items_data_start_row = items_start_row_in_sheet + 1
     if not items_summary.empty:
         for i, row_data in enumerate(items_summary['Total Transacciones']):
-             # Escribimos el valor de nuevo con el formato entero
              worksheet.write(items_data_start_row + i, col_idx_total_transactions, row_data, int_format)
 
 # --- Funciones existentes (sin cambios) ---
 def getQuerry(start_date, end_date, is_subscribed):
-    # La query original ya filtra por el monto mínimo, lo cual es perfecto para los rangos
     return f"""
 SELECT 
     orderNumber, 
@@ -377,7 +351,6 @@ WHERE
 """
 
 def getQuerryB(start_date, end_date, is_subscribed):
-    # La query original ya filtra por el monto mínimo, lo cual es perfecto para los rangos
     return f"""
 SELECT 
     orderNumber, 
@@ -421,19 +394,10 @@ def saveFile(file_name, start_date, end_date, is_subscribed):
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
     full_path = os.path.join(folder_name, f"{file_name}_{start_date}_{end_date}.xlsx")
-    # Pasamos is_subscribed a getQuerry y generate_order_report
     query = getQuerry(start_date, end_date, is_subscribed)
-    # query = getQuerryB(start_date, end_date, is_subscribed)
-    generate_order_report(query, full_path, start_date, end_date, is_subscribed) # Pasamos is_subscribed aquí también
+    generate_order_report(query, full_path, start_date, end_date, is_subscribed)
     upload_to_drive(full_path, folder_id="1F1VZxlp5IxkQEo4WD0Bt8VEJZ28OhGut")
 
 # Generar reportes con los parámetros adicionales (sin cambios en esta sección)
 saveFile('oto_free_shipping.xlsx', '2025-02-20', '2025-07-21', False)
 saveFile('sub_free_shipping.xlsx', '2025-02-20', '2025-07-21', True)
-# saveFile('oto_no_free_shipping.xlsx', '2024-12-20', '2025-02-20', False)
-# saveFile('sub_no_free_shipping.xlsx', '2024-12-20', '2025-02-20', True)
-
-# saveFile('oto_free_shipping_no_rule', '2025-02-20', '2025-07-14', False)
-# saveFile('sub_free_shipping_no_rule', '2025-02-20', '2025-07-14', True)
-# saveFile('oto_no_free_shipping_no_rule', '2024-12-20', '2025-07-14', False)
-# saveFile('sub_no_free_shipping_no_rule', '2024-12-20', '2025-07-14', True)

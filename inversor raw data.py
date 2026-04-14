@@ -19,7 +19,7 @@ COL_EXPERIENCE = "experience_with_color"
 COL_LAST_CANCELATION_DATE = "last_cancellation_date"
 
 MONTH_START = "2021-01-01"
-MONTH_END = "2025-12-01"  # inclusive (mes)
+MONTH_END = "2025-12-01"  
 
 # =========================
 # QUERY
