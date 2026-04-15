@@ -22,7 +22,7 @@ RECOMPRA_FILE   = "analisis_recompra_consolidado.xlsx"
 CANCEL_FILE     = "analisis_cancelaciones_2025-10-01_to_2026-01-01.xlsx"
 MAESTRO_FILE    = "analisis_repurchase_cancelaciones.xlsx"
 
-COL_IDX_RECOMPRA        = 8   # ej. "Q3 - 2025" → columna C
+COL_IDX_RECOMPRA        = 8
 COL_IDX_CANCEL_ETNIAS   = 5
 COL_IDX_CANCEL_SHADES   = 4
 

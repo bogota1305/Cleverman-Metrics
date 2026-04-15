@@ -7,6 +7,7 @@ This project provides a collection of Python scripts designed to extract, proces
 1. Generate comprehensive **Monthly Reports** in Excel (orders, sales, renewals, payment errors, funnels, and more).
 2. Generate the **Full Control (FC) Report** that tracks subscription renewal behavior.
 3. Read and upload **customer reviews** from the SUVAE platform to the production database.
+4. Analyze **repurchase behavior and subscription cancellations** on a quarterly basis.
 
 ---
 
@@ -14,16 +15,21 @@ This project provides a collection of Python scripts designed to extract, proces
 
 1. [Prerequisites & Installation](#1-prerequisites--installation)
 2. [Configuration](#2-configuration)
-3. [Monthly Report – `main.py`](#3-monthly-report--mainpy)
-4. [Full Control Report – `fcReport.py`](#4-full-control-report--fcreportpy)
-5. [Reviews Pipeline](#5-reviews-pipeline)
+3. [Pipeline Frequency & Schedule](#3-pipeline-frequency--schedule)
+4. [Monthly Report – `main.py`](#4-monthly-report--mainpy)
+5. [Full Control Report – `fcReport.py`](#5-full-control-report--fcreportpy)
+6. [Reviews Pipeline](#6-reviews-pipeline)
    - [Step 1 – Read Reviews – `read_reviews.py`](#step-1--read-reviews--read_reviewspy)
    - [Step 2 – AI Enrichment (pros & cons)](#step-2--ai-enrichment-pros--cons)
    - [Step 3 – Upload Reviews – `upload_reviews_to_dev_legacy.py`](#step-3--upload-reviews--upload_reviews_to_dev_legacypy)
-6. [Supporting Modules](#6-supporting-modules)
-7. [Cloud Upload](#7-cloud-upload)
-8. [General Metrics Report](#8-general-metrics-report)
-9. [Project Structure](#9-project-structure)
+7. [Repurchase & Cancellations Pipeline](#7-repurchase--cancellations-pipeline)
+   - [Step 1 – Repurchase Diagnostic – `repurchaseFirstOrderDiagnosticTotal.py`](#step-1--repurchase-diagnostic--repurchasefirstorderdiagnostictotalpy)
+   - [Step 2 – Shade Cancellations – `shadeCancelations.py`](#step-2--shade-cancellations--shadecancelationspy)
+   - [Step 3 – Merge Report – `analisis_repurchase_cancelaciones.py`](#step-3--merge-report--analisis_repurchase_cancelacionespy)
+8. [Supporting Modules](#8-supporting-modules)
+9. [Cloud Upload](#9-cloud-upload)
+10. [General Metrics Report](#10-general-metrics-report)
+11. [Project Structure](#11-project-structure)
 
 ---
 
@@ -40,7 +46,7 @@ Install all dependencies with a single command:
 ```bash
 pip install pandas mysql-connector-python matplotlib openpyxl tkcalendar xlsxwriter \
             google-api-python-client google-auth-httplib2 google-auth-oauthlib \
-            dropbox python-dotenv
+            dropbox python-dotenv numpy
 ```
 
 > **Note:** `tkinter` is part of the Python standard library on most systems. On some Linux distributions you may need to install it separately (`sudo apt-get install python3-tk`).
@@ -51,13 +57,14 @@ pip install pandas mysql-connector-python matplotlib openpyxl tkcalendar xlsxwri
 |---|---|
 | `pandas` | All scripts |
 | `mysql-connector-python` | `main.py`, `fcReport.py`, `upload_reviews_to_dev_legacy.py`, and all DB-querying scripts |
-| `openpyxl` | `fcReport.py`, `read_reviews.py`, `excel_creator.py` |
+| `openpyxl` | `fcReport.py`, `read_reviews.py`, `excel_creator.py`, `analisis_repurchase_cancelaciones.py` |
 | `matplotlib` | `excel_creator.py` and chart-generating scripts |
 | `tkinter` + `tkcalendar` | `date_selector.py`, `selectFiles.py` |
 | `xlsxwriter` | `ga4Funnels.py` |
 | `google-api-python-client`, `google-auth-*` | `uploadCloud.py` |
 | `dropbox` | `uploadCloud.py` |
 | `python-dotenv` | `upload_reviews_to_dev_legacy.py` |
+| `numpy` | `shadeCancelations.py` |
 
 ---
 
@@ -81,7 +88,20 @@ For the main reporting scripts (`main.py`, etc.), the database connection is han
 
 ---
 
-## 3. Monthly Report – `main.py`
+## 3. Pipeline Frequency & Schedule
+
+| Pipeline | Frequency | Notes |
+|---|---|---|
+| **Monthly Report** (`main.py`) | Once a month, at the **beginning** of the month | Covers the previous month's data |
+| **Full Control Report** (`fcReport.py`) | Once a month, at the **beginning** of the month | Run alongside the Monthly Report |
+| **Reviews Pipeline** | Every **2 weeks** | Run `read_reviews.py` → AI enrichment → `upload_reviews_to_dev_legacy.py` |
+| **Repurchase & Cancellations** | **Quarterly** — always for the **previous** quarter | See note below |
+
+> 📅 **Quarterly pipeline timing:** This report is always generated for the quarter that has **already closed**, not the one currently in progress. For example, as soon as Q1 2026 ends (April 1, 2026), you run the report for **Q4 2025** (Oct 1 – Dec 31, 2025). You do **not** run Q1 2026 until Q2 2026 begins.
+
+---
+
+## 4. Monthly Report – `main.py`
 
 `main.py` is the **main entry point** for generating the monthly business metrics report. It orchestrates multiple sub-scripts that query the database and process GA4 funnel data, then consolidates everything into a single Excel file.
 
@@ -154,9 +174,15 @@ A series of GUI windows will appear guiding you through:
 
 > **Date selection tip:** Choose the end date as the day **after** the last day you want included (e.g. for Oct 1–10, set start = Oct 1 and end = Oct 11).
 
+### Where to upload
+
+- All generated files are uploaded to **your own Google Drive** automatically via `uploadCloud.py`.
+- The **main report file** (`Monthly Report <Month>.xlsx`) must be **moved manually** to the following shared Drive folder:
+  [📁 Monthly Reports Folder](https://drive.google.com/drive/folders/1wEyoOxKCOkCWl6-tzkkgoXQiw-jsSrQq?usp=drive_link)
+
 ---
 
-## 4. Full Control Report – `fcReport.py`
+## 5. Full Control Report – `fcReport.py`
 
 `fcReport.py` generates the **Full Control (FC) tracker**, which measures the behavior of subscribers enrolled in the SMS renewal program.
 
@@ -212,9 +238,17 @@ The script reads month headers from **row 2, columns B through Z** of the "Full 
 | 42 | Second renewal |
 | 43 | Second or more renewals |
 
+### Where to upload
+
+The output of `fcReport.py` is used to fill the **Full Control sheet** in the following shared Drive spreadsheet:
+
+[📊 Ecomm Initiatives Trackers (Full Control sheet)](https://docs.google.com/spreadsheets/d/1t8fJrSbNgA51psvYKXwb35wcG3n8DS2oHWPJkSczaUI/edit?usp=sharing)
+
+> **Note:** Only the **"Full control"** sheet in that spreadsheet is relevant to this report. The other sheets are managed by other processes.
+
 ---
 
-## 5. Reviews Pipeline
+## 6. Reviews Pipeline
 
 The reviews pipeline consists of **three sequential steps** to import customer reviews from the SUVAE platform into the production database.
 
@@ -252,17 +286,96 @@ python read_reviews.py
 
 After running `read_reviews.py`, the resulting CSV/Excel file **does not yet contain the `pros` and `cons` columns** required by the database.
 
-You must use an **AI tool** (e.g. ChatGPT, Claude, Gemini, etc.) to:
+You must use an **AI tool** (e.g. ChatGPT, Claude, Gemini, etc.) to generate these columns.
 
-1. Upload the `verified_reviews_4_5.csv` (or `.xlsx`) file to the AI tool
-2. Ask the AI to read each review's `comment` field and generate two new columns:
-   - **`pros`** – a serialized PHP array (`a:N:{...}`) summarizing positive aspects mentioned in the comment
-   - **`cons`** – a serialized PHP array (`a:N:{...}`) summarizing negative aspects mentioned in the comment (or `a:0:{}` if none)
-3. Download the enriched CSV from the AI tool and save it as **`verified_reviews_json_format.csv`** in the root of the repository
+> ⚠️ **Privacy note:** Before uploading the file to any AI tool, **remove any columns containing sensitive user data** such as email addresses, full names, or order IDs. The only field needed by the AI is the review `comment` text.
 
-> **Format note:** The `pros` and `cons` columns must follow the legacy **PHP serialized array format** used by the `prod_ecommerce.review` table, for example:
-> `a:2:{i:0;s:14:"Easy to apply";i:1;s:20:"Great color payoff";}`
-> If the AI tool produces plain text lists, you will need to convert them to this format before proceeding.
+#### Valid values for `pros` and `cons`
+
+The `pros` and `cons` columns must use **only** the following predefined values. The AI must choose from this exact list — it cannot invent new categories.
+
+**Valid `pros` values:**
+```
+Natural-Looking Result
+Eliminates Desired Level Of Gray
+Long-Lasting
+Color Matches Desired Result
+Conditioner Makes My Hair Feel Great
+Brush Makes Application Easy
+High Quality Gloves That Fit My Hands
+Customized Instructions, Easy To Understand
+Auto-Delivery
+Mess-Free
+Works Fast
+```
+
+**Valid `cons` values:**
+```
+Covered Too Much Gray
+Covered Too Little Gray
+Fades Quickly
+Color Was Lighter Than I Expected
+Color Was Darker Than I Expected
+Difficult To Apply
+Confusing Instructions
+Messy
+Time-Consuming
+Stains In Skin / Sink
+```
+
+> **Format:** Both `pros` and `cons` are stored as **JSON arrays** in the database (e.g. `["Natural-Looking Result", "Mess-Free"]`). The AI must output this exact format and the upload script reads it directly — no conversion needed.
+
+#### AI Prompt
+
+Copy and paste the following prompt directly into any AI tool along with the reviews file (with sensitive columns removed):
+
+---
+
+> You are a data enrichment assistant for a men's hair coloring brand. I will provide you with a CSV file containing customer reviews. Your task is to analyze the `comment` field of each review and add two new columns: `pros` and `cons`.
+>
+> **Instructions:**
+>
+> 1. Read the `comment` field of each review carefully.
+> 2. Based on the content of the comment, select the most appropriate values from the **predefined lists below**. Do not invent new categories — only use values from these lists.
+> 3. If a review has no negative aspects mentioned, leave `cons` as an empty list `[]`.
+> 4. Output the result as a new CSV file with all original columns preserved, plus the two new columns `pros` and `cons`.
+> 5. The format for `pros` and `cons` must be a **JSON array of strings**, for example:
+>    `["Natural-Looking Result", "Mess-Free"]`
+>
+> **Valid values for `pros` (choose one or more):**
+> - Natural-Looking Result
+> - Eliminates Desired Level Of Gray
+> - Long-Lasting
+> - Color Matches Desired Result
+> - Conditioner Makes My Hair Feel Great
+> - Brush Makes Application Easy
+> - High Quality Gloves That Fit My Hands
+> - Customized Instructions, Easy To Understand
+> - Auto-Delivery
+> - Mess-Free
+> - Works Fast
+>
+> **Valid values for `cons` (choose one or more, or leave empty):**
+> - Covered Too Much Gray
+> - Covered Too Little Gray
+> - Fades Quickly
+> - Color Was Lighter Than I Expected
+> - Color Was Darker Than I Expected
+> - Difficult To Apply
+> - Confusing Instructions
+> - Messy
+> - Time-Consuming
+> - Stains In Skin / Sink
+>
+> **Important rules:**
+> - Only select values that are clearly supported by the review text. Do not guess or assume.
+> - If the comment is vague or doesn't mention any specific pros or cons, select the most general applicable option (e.g. "Natural-Looking Result" for a positive comment about the color).
+> - Every review must have at least one `pro`.
+> - Return the complete dataset as a downloadable CSV file, preserving all original columns and adding `pros` and `cons` as the last two columns.
+
+---
+
+Once you receive the enriched CSV from the AI tool, save it as **`verified_reviews_json_format.csv`** in the root of the repository.
 
 ---
 
@@ -292,8 +405,8 @@ You must use an **AI tool** (e.g. ChatGPT, Claude, Gemini, etc.) to:
 | `nickname` | Reviewer name (only first word is used) |
 | `email` | Reviewer email |
 | `recommendation` | Numeric recommendation score |
-| `pros` | PHP serialized array of pros |
-| `cons` | PHP serialized array of cons |
+| `pros` | JSON array of pros (e.g. `["Natural-Looking Result"]`) |
+| `cons` | JSON array of cons (e.g. `["Fades Quickly"]` or `[]`) |
 
 #### How to run
 
@@ -307,9 +420,142 @@ python upload_reviews_to_dev_legacy.py
 
 > ⚠️ Reviews are inserted with **`visible = 0`**. After uploading, they must be manually set to visible (`visible = 1`) in the database or through the admin panel before they appear on the website.
 
+### After uploading
+
+1. **Upload the generated file** (`verified_reviews_json_format.csv` or the enriched Excel) to the following Drive folder to maintain a historical tracker of all uploaded reviews:
+   [📁 Reviews Upload Tracker Folder](https://drive.google.com/drive/folders/1v2oyCe7vdGfuPviYzm96bQgbzrlDWLTZ?usp=drive_link)
+
+2. **Share the Drive link** of the uploaded file in the **`#consumer-information-center`** Slack channel.
+
 ---
 
-## 6. Supporting Modules
+## 7. Repurchase & Cancellations Pipeline
+
+This pipeline analyzes **first-order repurchase behavior** and **subscription cancellation reasons** by shade, ethnicity, and color experience. It consists of **three sequential steps** and is run **quarterly** (always for the previous quarter — see [Pipeline Frequency](#3-pipeline-frequency--schedule)).
+
+---
+
+### Step 1 – Repurchase Diagnostic – `repurchaseFirstOrderDiagnosticTotal.py`
+
+#### What it does
+
+- Queries the database to find customers who placed their **first order as an OTO (One-Time Order)** within the specified date range and whose order contained items from a specific product category
+- For each customer, it retrieves their **diagnostic profile** (quiz answers at the time of purchase) and counts how many additional orders they placed afterward
+- Analyzes repurchase rates broken down by every quiz variable (e.g. hair type, gray concentration, desired shade, experience with color, etc.)
+- Generates an Excel file: **`analisis_recompra_consolidado.xlsx`** with the following sheets:
+  - **`Todos los diagnósticos`** – repurchase rates for all diagnostic variables
+  - **`Con Developer 20Vol`** – filtered to orders containing 20 Vol developer
+  - **`Con Developer 10Vol`** – filtered to orders containing 10 Vol developer
+  - **`Combinaciones`** – if combination mode is selected, analyzes repurchase by predefined variable combinations (e.g. experience with color + skin reaction)
+
+#### Category filter (hair vs. beard)
+
+Inside the `procesar_rango_fechas` function, the following SQL block controls which product category is used to filter first orders:
+
+```sql
+WHERE soi.salesOrderId = fo.id
+    AND soi.category = 'IG00000000000000000000000000000029'
+```
+
+- `IG00000000000000000000000000000029` → **Hair** category
+- `IG00000000000000000000000000000028` → **Beard** category
+
+Change the category ID in this `WHERE` clause to switch between hair and beard analysis before running the script.
+
+#### Date range configuration
+
+Open the script and edit the `rangos_fechas` list in the `main()` function to set the desired quarter:
+
+```python
+rangos_fechas = [
+    {'start': '2025-01-01', 'end': '2025-04-01', 'codigo': 'Q1 - 2025', 'nombre': 'Q1 - 2025'}
+]
+```
+
+#### How to run
+
+```bash
+python repurchaseFirstOrderDiagnosticTotal.py
+```
+
+A GUI dialog will appear asking whether you want to run a **combination analysis** (`Yes`) or a **traditional diagnostic analysis** (`No`).
+
+---
+
+### Step 2 – Shade Cancellations – `shadeCancelations.py`
+
+#### What it does
+
+- Queries the database for all **subscription cancellations** within the specified date range, filtered to subscriptions that had a colorant shade item in their last order
+- For each cancellation, retrieves the **cancellation reason**, the **last shade ordered**, and the customer's **diagnostic profile** (ethnicity and experience with color)
+- Also queries **active subscriptions** in the same period for distribution context
+- Generates an Excel file: **`analisis_cancelaciones_<startDate>_to_<endDate>.xlsx`** with three sheets:
+  - **`Por Razon (Etnias)`** – cancellation reasons broken down by ethnicity (Caucasian / African / Asian)
+  - **`Por Razon (Shades)`** – cancellation reasons broken down by the last shade ordered, with sub-tables per ethnicity
+  - **`Por Razon (Experience)`** – cancellation reasons broken down by experience with color (Currently Dyed / I've colored / Never colored)
+
+#### Date range configuration
+
+Edit the `__main__` block at the bottom of the script:
+
+```python
+if __name__ == "__main__":
+    main('2025-01-01', '2025-04-01')
+```
+
+#### How to run
+
+```bash
+python shadeCancelations.py
+```
+
+---
+
+### Step 3 – Merge Report – `analisis_repurchase_cancelaciones.py`
+
+#### What it does
+
+This script takes the output files from Steps 1 and 2 and merges them into the master tracker file **`analisis_repurchase_cancelaciones.xlsx`**. It fills three sheets in the master file:
+
+| Sheet | Source | Data |
+|---|---|---|
+| `Recompra` | `analisis_recompra_consolidado.xlsx` | Repurchase percentage per diagnostic variable |
+| `Cancelaciones_Etnias` | `analisis_cancelaciones_*.xlsx` | Cancellation % by reason and ethnicity |
+| `Cancelaciones_shade` | `analisis_cancelaciones_*.xlsx` | Cancellation % by reason and shade |
+
+#### Configuration before running
+
+Open the script and update the file names and column indexes at the top:
+
+```python
+RECOMPRA_FILE   = "analisis_recompra_consolidado.xlsx"
+CANCEL_FILE     = "analisis_cancelaciones_2025-10-01_to_2026-01-01.xlsx"  # ← update this
+MAESTRO_FILE    = "analisis_repurchase_cancelaciones.xlsx"
+
+COL_IDX_RECOMPRA        = 8   # ← column index to write repurchase data in master
+COL_IDX_CANCEL_ETNIAS   = 5   # ← column index to write ethnicity cancellation data
+COL_IDX_CANCEL_SHADES   = 4   # ← column index to write shade cancellation data
+```
+
+Update `CANCEL_FILE` to match the filename generated by Step 2, and adjust the `COL_IDX_*` values to point to the correct quarter column in the master tracker.
+
+#### How to run
+
+```bash
+python analisis_repurchase_cancelaciones.py
+```
+
+The script will print a summary of how many values were written to each sheet.
+
+### Where to upload
+
+After running the full pipeline, upload the results to the following shared Drive folder:
+
+[📁 Repurchase & Cancellations Reports Folder](https://drive.google.com/drive/folders/1NM0jJ_zMBSRpaDdjt8nbHGIfHkneLCv0?usp=drive_link)
+
+---
+
+## 8. Supporting Modules
 
 All shared modules live in the **`modules/`** directory.
 
@@ -341,7 +587,7 @@ Provides `lighten_color(hex_color, factor=0.5)` – returns a lighter version of
 
 ---
 
-## 7. Cloud Upload
+## 9. Cloud Upload
 
 ### `uploadCloud.py`
 
@@ -373,7 +619,7 @@ When running `main.py`, a popup will appear after the reports are generated allo
 
 ---
 
-## 8. General Metrics Report
+## 10. General Metrics Report
 
 The file **`metricas.xlsx`** (provided in the repository) serves as a centralized tracker where all monthly metrics are recorded.
 
@@ -384,7 +630,7 @@ The file **`metricas.xlsx`** (provided in the repository) serves as a centralize
 
 ---
 
-## 9. Project Structure
+## 11. Project Structure
 
 ```
 Cleverman-Metrics/
@@ -397,6 +643,10 @@ Cleverman-Metrics/
 ├── fcReport.py                   # ⭐ Full Control Report
 ├── read_reviews.py               # ⭐ Step 1 – Parse reviews JSON
 ├── upload_reviews_to_dev_legacy.py # ⭐ Step 3 – Upload reviews to DB
+│
+├── repurchaseFirstOrderDiagnosticTotal.py  # ⭐ Repurchase pipeline – Step 1
+├── shadeCancelations.py                    # ⭐ Repurchase pipeline – Step 2
+├── analisis_repurchase_cancelaciones.py    # ⭐ Repurchase pipeline – Step 3
 │
 ├── modules/
 │   ├── database_queries.py       # Shared DB query helper
@@ -419,26 +669,26 @@ Cleverman-Metrics/
 ├── report.py                     # Writes metrics to metricas.xlsx
 ├── uploadCloud.py                # Google Drive & Dropbox upload
 ├── block_payments.py             # Stripe blocked payments analysis
-│
-├── repurchase.py                 # Repurchase analytics (various variants)
-├── analisis_repurchase_cancelaciones.py
-├── aov_free_shipping.py
-├── backupPayment.py
-├── backupPaymentMethod.py
-├── colorCancellations.py
-├── midBrownCancellations.py
-├── shadeBeardOrHairCancelations.py
-├── shadeCancelations.py
-└── newRealRenewalFrecuency.py
+├── aov_free_shipping.py          # AOV & free shipping analysis
+├── backupPayment.py              # Backup payment analysis
+├── backupPaymentMethod.py        # Backup payment method analysis
+├── colorCancellations.py         # Color-based cancellation analysis
+├── midBrownCancellations.py      # Mid-brown cancellation analysis
+├── shadeBeardOrHairCancelations.py # Beard/hair shade cancellations
+├── newRealRenewalFrecuency.py    # Updated renewal frequency analysis
+└── 3x2promo.py                   # 3x2 promotion analysis
 ```
 
 ---
 
 ## Quick Reference – Which script to run for each task
 
-| Task | Script |
-|---|---|
-| Generate the full monthly report | `python main.py` |
-| Generate the Full Control tracker | `python fcReport.py` |
-| Parse reviews JSON from SUVAE | `python read_reviews.py` |
-| Upload enriched reviews to DB | `python upload_reviews_to_dev_legacy.py` |
+| Task | Script | Frequency |
+|---|---|---|
+| Generate the full monthly report | `python main.py` | Monthly (beginning of month) |
+| Generate the Full Control tracker | `python fcReport.py` | Monthly (beginning of month) |
+| Parse reviews JSON from SUVAE | `python read_reviews.py` | Every 2 weeks |
+| Upload enriched reviews to DB | `python upload_reviews_to_dev_legacy.py` | Every 2 weeks |
+| Repurchase diagnostic analysis | `python repurchaseFirstOrderDiagnosticTotal.py` | Quarterly (previous quarter) |
+| Shade cancellations analysis | `python shadeCancelations.py` | Quarterly (previous quarter) |
+| Merge repurchase + cancellations report | `python analisis_repurchase_cancelaciones.py` | Quarterly (after steps 1 & 2) |
