@@ -1,6 +1,6 @@
-credentials.json
 .env
-verified_reviews_4_5_with_pros_cons.csv
+credentials.json
+.vscode/settings.json
+verified_reviews_json_format.csv
 reviews.json
 Monthly Report.xlsx
-.vscode/settings.json

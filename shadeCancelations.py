@@ -509,10 +509,16 @@ def ajustar_ancho_columnas(archivo_excel):
         print(f"✗ Error ajustando el ancho de columnas para {archivo_excel}: {e}")
 
 
-def main(startDate, endDate):
+def main(startDate, endDate, categoryType):
     # 1. Obtener datos de cancelaciones
     item_ids = list(shades.keys())
     item_ids_str = "', '".join(item_ids)
+
+    if categoryType == "Beard":
+        items_beard_hair = "('IT00000000000000000000001004170001','IT00000000000000000000001004170002', 'IT00000000000000000000001004170003', 'IT00000000000000000000001004170004', 'IT00000000000000000000001004170005', 'IT00000000000000000000001004170008', 'IT00000000000000000000001004170009', 'IT00000000000000000000001004170010', 'IT00000000000000000000001004170011', 'IT00000000000000000000001004170014')"
+    elif categoryType == "Hair":
+        items_beard_hair = "('IT00000000000000000000001004170007','IT00000000000000000000001004170006', 'IT00000000000000000000001004170008', 'IT00000000000000000000001004170012', 'IT00000000000000000000001004170013')"
+    
 
     query = f"""
     WITH cancels AS (
@@ -568,7 +574,7 @@ def main(startDate, endDate):
             ON so.id = lo.salesOrderId
         LEFT JOIN prod_sales_and_subscriptions.sales_order_items soi
             ON soi.salesOrderId = so.id
-        AND soi.itemId LIKE "%0001004170%"
+        AND soi.itemId IN {items_beard_hair}
         )
 
         SELECT
@@ -638,7 +644,7 @@ def main(startDate, endDate):
     df_por_razon_experience = analizar_cancelaciones_por_razon_y_experience(df)
 
     # 4. Guardar Excel
-    nombre_archivo = f"analisis_cancelaciones_{startDate}_to_{endDate}.xlsx"
+    nombre_archivo = f"analisis_cancelaciones_{startDate}_to_{endDate}_{categoryType}.xlsx"
 
     with pd.ExcelWriter(nombre_archivo, engine='openpyxl') as writer:
         # Hoja 1: Por Razon (Etnias)
@@ -707,7 +713,8 @@ def main(startDate, endDate):
 
 
 if __name__ == "__main__":
-    main('2021-01-01', '2021-04-01')
+    main('2026-01-01', '2026-04-01', 'Beard')
+    main('2026-01-01', '2026-04-01', 'Hair')
     # main('2021-03-01', '2021-07-01')
     # main('2021-07-01', '2021-10-01')
     # main('2021-10-01', '2022-01-01')

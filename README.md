@@ -122,9 +122,6 @@ Before running `main.py`, you must **manually download the funnel CSV files from
 1. Go to [Google Analytics](https://analytics.google.com/analytics/web/?authuser=1#/p338732175/reports/reportinghub)
 2. Navigate to the desired funnel report (e.g. *Customized Kit*, *All In One*, *Shop*, etc.)
 3. Click the **Download** button and select **CSV** format
-
-   ![GA4 Download Example](https://github.com/user-attachments/assets/5bbb15ef-a7e8-4d66-af32-aaf4b38d0e17)
-
 4. Repeat for each funnel you want to include in the report
 5. When `main.py` prompts you to select files, pick the corresponding CSV for each funnel
 
@@ -220,6 +217,8 @@ python fcReport.py
 **Prerequisites:**
 - The file `Ecomm initiatives trackers.xlsx` must exist in the same folder as `fcReport.py`
 - The `.env` file must contain valid database credentials
+
+> ⚠️ **Before running the report:** Verify the `TEMPLATE_LAST_MONTH_COL` variable (line 68 of `fcReport.py`). Its value must match the index of the **last month column** present in the Excel template (default is `27`, which corresponds to column AA). If the template has more or fewer months, update this value before running the script. Otherwise, the script will read out-of-range columns or leave months unfilled.
 
 ### Template requirements
 
@@ -439,37 +438,46 @@ This pipeline analyzes **first-order repurchase behavior** and **subscription ca
 
 #### What it does
 
-- Queries the database to find customers who placed their **first order as an OTO (One-Time Order)** within the specified date range and whose order contained items from a specific product category
+- Queries the database to find customers who placed their **first order** within the specified date range and whose order contained items from a specific product category (Hair or Beard)
 - For each customer, it retrieves their **diagnostic profile** (quiz answers at the time of purchase) and counts how many additional orders they placed afterward
 - Analyzes repurchase rates broken down by every quiz variable (e.g. hair type, gray concentration, desired shade, experience with color, etc.)
-- Generates an Excel file: **`analisis_recompra_consolidado.xlsx`** with the following sheets:
+- Generates an Excel file: **`analisis_recompra_consolidado_<name>_<purchaseType>_<categoryType>.xlsx`** with the following sheets:
   - **`Todos los diagnósticos`** – repurchase rates for all diagnostic variables
   - **`Con Developer 20Vol`** – filtered to orders containing 20 Vol developer
   - **`Con Developer 10Vol`** – filtered to orders containing 10 Vol developer
   - **`Combinaciones`** – if combination mode is selected, analyzes repurchase by predefined variable combinations (e.g. experience with color + skin reaction)
 
-#### Category filter (hair vs. beard)
+#### Configuration — no script editing required
 
-Inside the `procesar_rango_fechas` function, the following SQL block controls which product category is used to filter first orders:
+All parameters are passed directly to `main()` in the `__main__` block at the bottom of the script. You do **not** need to modify any SQL or internal variables.
 
-```sql
-WHERE soi.salesOrderId = fo.id
-    AND soi.category = 'IG00000000000000000000000000000029'
-```
-
-- `IG00000000000000000000000000000029` → **Hair** category
-- `IG00000000000000000000000000000028` → **Beard** category
-
-Change the category ID in this `WHERE` clause to switch between hair and beard analysis before running the script.
-
-#### Date range configuration
-
-Open the script and edit the `rangos_fechas` list in the `main()` function to set the desired quarter:
+The `main()` function signature is:
 
 ```python
-rangos_fechas = [
-    {'start': '2025-01-01', 'end': '2025-04-01', 'codigo': 'Q1 - 2025', 'nombre': 'Q1 - 2025'}
-]
+main(date_start, date_end, endDateActual, name, categoryType, purchaseType)
+```
+
+| Parameter | Description | Example |
+|---|---|---|
+| `date_start` | Start date of the quarter being measured | `'2025-10-01'` |
+| `date_end` | End date of the quarter being measured | `'2026-01-01'` |
+| `endDateActual` | End date of the **next** quarter (used to count all subsequent orders) | `'2026-04-01'` |
+| `name` | Label for the quarter (used in column headers and file name) | `'Q4 - 2025'` |
+| `categoryType` | Kit type to analyze | `'Hair'` or `'Beard'` |
+| `purchaseType` | Order plan filter | `'OTO'`, `'SUBSCRIPTION'`, or `'BOTH'` |
+
+> **`BOTH`** skips the `order_plan` filter entirely and includes all plan types.
+
+Update the `__main__` block to match the quarter you want to analyze. You can call `main()` multiple times in a single run to generate all combinations at once:
+
+```python
+if __name__ == "__main__":
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Beard', 'OTO')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Hair', 'OTO')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Beard', 'SUBSCRIPTION')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Hair', 'SUBSCRIPTION')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Beard', 'BOTH')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Hair', 'BOTH')
 ```
 
 #### How to run
@@ -489,18 +497,33 @@ A GUI dialog will appear asking whether you want to run a **combination analysis
 - Queries the database for all **subscription cancellations** within the specified date range, filtered to subscriptions that had a colorant shade item in their last order
 - For each cancellation, retrieves the **cancellation reason**, the **last shade ordered**, and the customer's **diagnostic profile** (ethnicity and experience with color)
 - Also queries **active subscriptions** in the same period for distribution context
-- Generates an Excel file: **`analisis_cancelaciones_<startDate>_to_<endDate>.xlsx`** with three sheets:
+- Generates an Excel file: **`analisis_cancelaciones_<startDate>_to_<endDate>_<categoryType>.xlsx`** with three sheets:
   - **`Por Razon (Etnias)`** – cancellation reasons broken down by ethnicity (Caucasian / African / Asian)
   - **`Por Razon (Shades)`** – cancellation reasons broken down by the last shade ordered, with sub-tables per ethnicity
   - **`Por Razon (Experience)`** – cancellation reasons broken down by experience with color (Currently Dyed / I've colored / Never colored)
 
-#### Date range configuration
+#### Configuration — no script editing required
 
-Edit the `__main__` block at the bottom of the script:
+All parameters are passed directly to `main()` in the `__main__` block at the bottom of the script. You do **not** need to modify any SQL or internal variables.
+
+The `main()` function signature is:
+
+```python
+main(startDate, endDate, categoryType)
+```
+
+| Parameter | Description | Example |
+|---|---|---|
+| `startDate` | Start date of the quarter being measured | `'2025-10-01'` |
+| `endDate` | End date of the quarter being measured | `'2026-01-01'` |
+| `categoryType` | Kit type to analyze | `'Hair'` or `'Beard'` |
+
+Update the `__main__` block to match the quarter you want to analyze. You can call `main()` multiple times in a single run to generate both kit types at once:
 
 ```python
 if __name__ == "__main__":
-    main('2025-01-01', '2025-04-01')
+    main('2026-01-01', '2026-04-01', 'Beard')
+    main('2026-01-01', '2026-04-01', 'Hair')
 ```
 
 #### How to run
@@ -538,6 +561,8 @@ COL_IDX_CANCEL_SHADES   = 4   # ← column index to write shade cancellation dat
 ```
 
 Update `CANCEL_FILE` to match the filename generated by Step 2, and adjust the `COL_IDX_*` values to point to the correct quarter column in the master tracker.
+
+> ⚠️ **Sheet name in the master file:** The script looks for a sheet named exactly **`Recompra`** in `analisis_repurchase_cancelaciones.xlsx`. Before running the script, make sure the sheet you want to fill in the master file is named exactly `Recompra` (no accents, no extra spaces). If the sheet has a different name, rename it manually before executing.
 
 #### How to run
 

@@ -477,7 +477,22 @@ def procesar_datos_combinaciones_diagnostico(df, combinaciones):
     
     return df_resultado
 
-def procesar_rango_fechas(start_date, end_date, nombre_rango):
+def procesar_rango_fechas(start_date, end_date, endDateActual, nombre_rango, categoryType, purchaseType):
+
+    cType = ''
+    if categoryType == 'Beard':
+        cType = 'IG00000000000000000000000000000029'
+        items = ('IT00000000000000000000001004170007','IT00000000000000000000001004170006', 'IT00000000000000000000001004170008', 'IT00000000000000000000001004170012', 'IT00000000000000000000001004170013')
+    elif categoryType == 'Hair':
+        cType = 'IG00000000000000000000000000000028'
+        items = ('IT00000000000000000000001004170001','IT00000000000000000000001004170002', 'IT00000000000000000000001004170003', 'IT00000000000000000000001004170004', 'IT00000000000000000000001004170005', 'IT00000000000000000000001004170008', 'IT00000000000000000000001004170009', 'IT00000000000000000000001004170010', 'IT00000000000000000000001004170011', 'IT00000000000000000000001004170014')
+
+    pType = ''
+    if purchaseType == 'OTO':
+        pType = 'AND fo.order_plan = "OTO"'
+    elif purchaseType == 'SUBSCRIPTION':
+        pType = 'AND fo.order_plan = "SUBSCRIPTION"'
+    
     """
     Procesa un rango de fechas y devuelve los DataFrames para diagnóstico
     """
@@ -486,14 +501,14 @@ def procesar_rango_fechas(start_date, end_date, nombre_rango):
         SELECT fo.id AS order_id, fo.customer_id, fo.created_at
         FROM bi.fact_orders fo
         WHERE fo.is_first_order = 1
-            AND fo.order_plan = 'OTO'
+            {pType}
             AND fo.status NOT IN ('CANCELLED','PAYMENT_ERROR')
             AND fo.created_at BETWEEN '{start_date}' AND '{end_date}'
             AND EXISTS (
             SELECT 1
             FROM bi.fact_sales_order_items soi
             WHERE soi.salesOrderId = fo.id
-                AND soi.category = 'IG00000000000000000000000000000029' 
+                AND soi.category = '{cType}' 
             )
         ),
         custom_orders_count AS (
@@ -509,7 +524,7 @@ def procesar_rango_fechas(start_date, end_date, nombre_rango):
                 'IG00000000000000000000000000000028'
                 )
             )
-            AND fo.created_at BETWEEN '{start_date}' AND '2026-01-01'
+            AND fo.created_at BETWEEN '{start_date}' AND '{endDateActual}'
         GROUP BY fo.customer_id
         ),
         first_order_items AS (
@@ -525,7 +540,7 @@ def procesar_rango_fechas(start_date, end_date, nombre_rango):
             SELECT psoi.additionalFields->>"$.diagnostic"
             FROM prod_sales_and_subscriptions.sales_order_items psoi
             WHERE psoi.salesOrderId = fo.order_id
-            AND psoi.itemId IN ('IT00000000000000000000001004170007','IT00000000000000000000001004170006')
+            AND psoi.itemId IN {items}
             ORDER BY psoi.itemId
             LIMIT 1
         ) AS diagnostic,
@@ -705,7 +720,7 @@ def combinar_dataframes(lista_dataframes, nombres_rangos, tipo_analisis="diagnos
     
     return df_combinado
 
-def main():
+def main(date_start, date_end, endDateActual, name, categoryType, purchaseType):
     # Preguntar qué tipo de análisis realizar
     root = tk.Tk()
     root.withdraw()  # Ocultar la ventana principal
@@ -731,7 +746,7 @@ def main():
     rangos_fechas = [
         # {'start': '2021-01-01', 'end': '2022-12-11', 'codigo': 'CTF', 'nombre': 'Control Timeframe'},
         # {'start': '2022-12-20', 'end': '2023-12-31', 'codigo': 'DVL', 'nombre': 'OTO Developer change'},
-        {'start': '2025-04-01', 'end': '2025-07-01', 'codigo': 'Q2 - 2025', 'nombre': 'Q2 - 2025'}
+        {'start': date_start, 'end': date_end, 'codigo': name, 'nombre': name}
     ]
     
     # Crear diccionario de nombres de rangos
@@ -743,7 +758,7 @@ def main():
     for rango in rangos_fechas:
         print(f"Procesando rango {rango['nombre']}: {rango['start']} a {rango['end']}")
         try:
-            resultado = procesar_rango_fechas(rango['start'], rango['end'], rango['codigo'])
+            resultado = procesar_rango_fechas(rango['start'], rango['end'], endDateActual, rango['codigo'], categoryType, purchaseType)
             resultados.append(resultado)
             datos_completos.append(resultado['datos_completos'])
         except Exception as e:
@@ -758,7 +773,7 @@ def main():
             datos_completos.append(pd.DataFrame())
     
     # Guardar en un solo archivo Excel
-    nombre_archivo = "analisis_recompra_consolidado.xlsx"
+    nombre_archivo = f"analisis_recompra_consolidado_{name}_{purchaseType}_{categoryType}.xlsx"
     
     with pd.ExcelWriter(nombre_archivo, engine='openpyxl') as writer:
         if realizar_combinaciones:
@@ -810,4 +825,10 @@ def main():
     print(f"Análisis completado. Resultados consolidados guardados en: {nombre_archivo}")
 
 if __name__ == "__main__":
-    main()
+
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Beard', 'OTO')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Hair', 'OTO')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Beard', 'SUBSCRIPTION')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Hair', 'SUBSCRIPTION')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Beard', 'BOTH')
+    main('2025-10-01', '2026-01-01', '2026-04-01', 'Q4 - 2025', 'Hair', 'BOTH')

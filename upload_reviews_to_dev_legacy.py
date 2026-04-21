@@ -12,7 +12,7 @@ load_dotenv()
 # CONFIG
 # =========================
 
-REVIEWS_CSV = "verified_reviews_json_format.csv"
+REVIEWS_CSV = "verified_reviews_final_latest_v2.csv"
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),

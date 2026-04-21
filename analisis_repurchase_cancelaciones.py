@@ -18,13 +18,13 @@ import pandas as pd
 from openpyxl import load_workbook
 
 # ================= CONFIGURACIÓN =================
-RECOMPRA_FILE   = "analisis_recompra_consolidado.xlsx"
-CANCEL_FILE     = "analisis_cancelaciones_2025-10-01_to_2026-01-01.xlsx"
-MAESTRO_FILE    = "analisis_repurchase_cancelaciones.xlsx"
+RECOMPRA_FILE   = "analisis_recompra_consolidado_Q4 - 2025_SUBSCRIPTION_Beard.xlsx"
+CANCEL_FILE     = "analisis_cancelaciones_2026-01-01_to_2026-04-01_Beard.xlsx"
+MAESTRO_FILE    = "analisis_repurchase_cancelaciones_Beard.xlsx"
 
-COL_IDX_RECOMPRA        = 8
-COL_IDX_CANCEL_ETNIAS   = 5
-COL_IDX_CANCEL_SHADES   = 4
+COL_IDX_RECOMPRA        = 6
+COL_IDX_CANCEL_ETNIAS   = 6
+COL_IDX_CANCEL_SHADES   = 6
 
 # ================= FUNCIONES AUXILIARES =================
 def clean_percent(val):

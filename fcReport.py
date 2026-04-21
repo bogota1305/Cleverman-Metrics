@@ -65,7 +65,7 @@ MONTH_MAP = {
 FULL_CONTROL_SHEET_NAME = "Full control"
 TEMPLATE_MONTH_HEADER_ROW = 2
 TEMPLATE_FIRST_MONTH_COL = 2   # B
-TEMPLATE_LAST_MONTH_COL = 26   # Z
+TEMPLATE_LAST_MONTH_COL = 27   # AA
 
 
 def _normalize_date_column(df: pd.DataFrame, column_name: str) -> pd.Series:
